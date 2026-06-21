@@ -1,0 +1,25 @@
+OPENING_LINE = "A long time ago, in a galaxy far, far away...."
+
+TITLE_CARD = r"""
+███████╗████████╗ █████╗ ██████╗     ██╗    ██╗ █████╗ ██████╗ ███████╗
+██╔════╝╚══██╔══╝██╔══██╗██╔══██╗    ██║    ██║██╔══██╗██╔══██╗██╔════╝
+███████╗   ██║   ███████║██████╔╝    ██║ █╗ ██║███████║██████╔╝███████╗
+╚════██║   ██║   ██╔══██║██╔══██╗    ██║███╗██║██╔══██║██╔══██╗╚════██║
+███████║   ██║   ██║  ██║██║  ██║    ╚███╔███╔╝██║  ██║██║  ██║███████║
+╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝     ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
+
+              A   N E W   D A W N
+"""
+
+DEFAULT_CRAWL = """
+Civil war shadows the galaxy.
+
+Imperial control tightens across the Outer Rim while scattered
+cells of resistance trade whispers, credits, and stolen data
+in the dark between the stars.
+
+On the industrial world of Corellia, an ordinary life is about
+to collide with smugglers, spies, and a secret powerful enough
+to shift the fate of entire systems....
+""".strip()
+

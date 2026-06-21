@@ -1,4 +1,4 @@
--- A New Dawn
+-- STAR WARS: A NEW DAWN
 -- Initial Supabase schema for a choice-driven single-player RPG.
 
 create extension if not exists pgcrypto;
@@ -50,7 +50,7 @@ create table if not exists public.profiles (
 create table if not exists public.campaigns (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
-  title text not null default 'A New Dawn',
+  title text not null default 'STAR WARS: A NEW DAWN',
   campaign_seed bigint not null,
   player_class public.player_class not null,
   era_key text not null,

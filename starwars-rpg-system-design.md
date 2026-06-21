@@ -1,6 +1,6 @@
-# A New Dawn System Design
+# STAR WARS: A NEW DAWN System Design
 
-`A New Dawn` is the working title for this Star Wars-inspired CLI RPG.
+`STAR WARS: A NEW DAWN` is the working title for this CLI RPG.
 
 ## 1. Goal
 

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "starwars-a-new-dawn"
+version = "0.1.0"
+description = "STAR WARS: A NEW DAWN - choice-driven CLI RPG scaffold"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116.0",
+  "httpx>=0.28.0",
+  "openai>=1.54.0",
+  "pydantic>=2.9.0",
+  "pydantic-settings>=2.6.0",
+  "PyJWT[crypto]>=2.10.0",
+  "psycopg[binary]>=3.2.0",
+  "rich>=13.9.0",
+  "sqlalchemy>=2.0.36",
+  "typer>=0.15.0",
+  "uvicorn>=0.32.0"
+]
+
+[project.scripts]
+a-new-dawn-api = "a_new_dawn.api:run"
+a-new-dawn = "a_new_dawn.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/a_new_dawn"]
