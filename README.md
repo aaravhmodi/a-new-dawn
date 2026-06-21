@@ -7,11 +7,15 @@ This repo now contains a working scaffold for a choice-driven CLI RPG with:
 - SQLAlchemy models mapped to the Supabase schema
 - an AI generation layer for campaign arcs, episode plans, and scene narration
 - persistence into Supabase Postgres
+- verified Supabase JWT auth in the FastAPI layer
+- seed catalogs for eras, classes, items, factions, and canon cameo rules
 
 ## Quick Start
 
 1. Create a Supabase project.
-2. Run the SQL migration in [supabase/migrations/20260621112500_initial_schema.sql](C:\Users\upsid\documents\projects\star wars\supabase\migrations\20260621112500_initial_schema.sql).
+2. Run the SQL migrations in order:
+   - [20260621112500_initial_schema.sql](C:\Users\upsid\documents\projects\star wars\supabase\migrations\20260621112500_initial_schema.sql)
+   - [20260621120500_seed_content.sql](C:\Users\upsid\documents\projects\star wars\supabase\migrations\20260621120500_seed_content.sql)
 3. Copy `.env.example` to `.env` and fill in your keys.
 4. Install dependencies:
 
@@ -43,13 +47,12 @@ a-new-dawn new-campaign --player-class smuggler --era galactic_civil_war --plane
 
 ## Current Security Model
 
-This scaffold is deliberately thin:
-
 - Supabase Auth is used for signup/login.
-- The CLI sends `X-User-Id` to the backend.
-- The backend currently trusts that header for local development.
+- The CLI stores the Supabase access token locally in `.local/a-new-dawn-session.json`.
+- The CLI sends `Authorization: Bearer <token>` to the backend.
+- The backend validates the JWT against the Supabase JWKS endpoint and checks issuer/audience.
 
-For production, replace header trust with verified Supabase JWT validation in FastAPI middleware.
+This is suitable for a serious prototype. For production, add token refresh handling and stricter request logging/rate limiting.
 
 ## AI Generation Flow
 
@@ -79,7 +82,5 @@ The backend:
 ## Where To Extend
 
 - Replace the simple engine with richer combat and relationship logic.
-- Add JWT verification for Supabase user sessions.
 - Add item catalogs and cameo catalogs as seed tables.
 - Add caching for AI-generated narration.
-

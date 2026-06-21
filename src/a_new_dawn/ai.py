@@ -5,9 +5,68 @@ import random
 from typing import Any
 
 from openai import OpenAI
+from pydantic import BaseModel, Field, ValidationError
 
 from a_new_dawn.content import DEFAULT_CRAWL
 from a_new_dawn.settings import get_settings
+
+
+class RecurringCharacter(BaseModel):
+    key: str
+    name: str
+
+
+class CampaignArcModel(BaseModel):
+    title: str
+    opening_crawl: str
+    main_villain_key: str
+    main_villain_name: str
+    central_objective_key: str
+    central_objective_name: str
+    faction_anchor_key: str
+    recurring_allies: list[RecurringCharacter]
+    recurring_rivals: list[RecurringCharacter]
+
+
+class ChoiceEffectsModel(BaseModel):
+    credits_delta: int = 0
+    health_delta: int = 0
+    light_delta: int = 0
+    dark_delta: int = 0
+    independent_delta: int = 0
+    set_flags: list[str] = Field(default_factory=list)
+    add_items: list[dict[str, str]] = Field(default_factory=list)
+    relationship_deltas: dict[str, int] = Field(default_factory=dict)
+    faction_deltas: dict[str, int] = Field(default_factory=dict)
+
+
+class EpisodeChoiceModel(BaseModel):
+    choice_key: str
+    label: str
+    description: str
+    outcome: str
+    next_scene_key: str
+    effects: ChoiceEffectsModel
+
+
+class EpisodeSceneModel(BaseModel):
+    scene_key: str
+    title: str
+    prompt: str
+    choices: list[EpisodeChoiceModel]
+
+
+class EpisodePlanModel(BaseModel):
+    episode_number: int
+    title: str
+    theme: str
+    summary: str
+    scenes: list[EpisodeSceneModel]
+
+
+class SceneNarrationModel(BaseModel):
+    title: str
+    narration: str
 
 
 class AIService:
@@ -30,7 +89,7 @@ Constraints:
 - seed: {seed}
 - Keep it cinematic and concise.
 """
-        fallback = {
+        fallback = CampaignArcModel.model_validate({
             "title": "STAR WARS: A NEW DAWN",
             "opening_crawl": DEFAULT_CRAWL,
             "main_villain_key": "imperial_inquisitor_vael",
@@ -40,8 +99,8 @@ Constraints:
             "faction_anchor_key": "outer_rim_rebels",
             "recurring_allies": [{"key": "kira_veen", "name": "Kira Veen"}],
             "recurring_rivals": [{"key": "captain_drex", "name": "Captain Drex"}],
-        }
-        return self._json_or_fallback(prompt, fallback)
+        })
+        return self._validated_json_response(prompt, CampaignArcModel, fallback).model_dump()
 
     def generate_episode_plan(self, *, campaign_arc: dict[str, Any], episode_number: int, player_class: str) -> dict[str, Any]:
         prompt = f"""
@@ -68,8 +127,8 @@ Rules:
 - Player class: {player_class}
 - Campaign arc: {json.dumps(campaign_arc)}
 """
-        fallback = self._fallback_episode_plan(campaign_arc, episode_number, player_class)
-        return self._json_or_fallback(prompt, fallback)
+        fallback = EpisodePlanModel.model_validate(self._fallback_episode_plan(campaign_arc, episode_number, player_class))
+        return self._validated_json_response(prompt, EpisodePlanModel, fallback).model_dump()
 
     def narrate_scene(self, *, opening_crawl: str, campaign_arc: dict[str, Any], scene: dict[str, Any], stats: dict[str, Any]) -> dict[str, str]:
         prompt = f"""
@@ -89,8 +148,8 @@ Scene:
 Player stats:
 {json.dumps(stats)}
 """
-        fallback = {"title": scene["title"], "narration": scene["prompt"]}
-        return self._json_or_fallback(prompt, fallback)
+        fallback = SceneNarrationModel(title=scene["title"], narration=scene["prompt"])
+        return self._validated_json_response(prompt, SceneNarrationModel, fallback).model_dump()
 
     def narrate_resolution(self, *, scene_title: str, choice_label: str, outcome: str) -> str:
         if not self.client:
@@ -105,16 +164,26 @@ Outcome: {outcome}
         response = self.client.responses.create(model=self.model, input=prompt)
         return response.output_text.strip() or outcome
 
-    def _json_or_fallback(self, prompt: str, fallback: dict[str, Any]) -> dict[str, Any]:
+    def _validated_json_response(self, prompt: str, model_type: type[BaseModel], fallback: BaseModel) -> BaseModel:
         if not self.client:
             return fallback
 
-        response = self.client.responses.create(model=self.model, input=prompt)
-        text = response.output_text.strip()
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
+        last_error: Exception | None = None
+        for _ in range(3):
+            response = self.client.responses.create(
+                model=self.model,
+                input=prompt + f"\nReturn valid JSON only. Use this schema shape: {json.dumps(model_type.model_json_schema())}",
+            )
+            text = response.output_text.strip()
+            try:
+                return model_type.model_validate(json.loads(text))
+            except (json.JSONDecodeError, ValidationError) as exc:
+                last_error = exc
+                continue
+
+        if last_error:
             return fallback
+        return fallback
 
     def _fallback_episode_plan(self, campaign_arc: dict[str, Any], episode_number: int, player_class: str) -> dict[str, Any]:
         prefix = f"ep{episode_number}"
@@ -252,4 +321,3 @@ Outcome: {outcome}
                 },
             ],
         }
-

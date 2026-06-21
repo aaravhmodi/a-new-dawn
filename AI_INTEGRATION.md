@@ -61,6 +61,8 @@ SUPABASE_DB_URL=postgresql+psycopg://...
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_JWT_AUDIENCE=authenticated
+SUPABASE_JWT_ISSUER=https://your-project.supabase.co/auth/v1
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-4.1-mini
 ```
@@ -100,7 +102,7 @@ The current prompts are intentionally compact. Improve them by:
 
 ## What to replace before production
 
-- Replace `X-User-Id` trust with Supabase JWT verification.
+- Add refresh-token renewal on the CLI side.
 - Add idempotency keys for choice submissions.
 - Add AI output validation before writing to the database.
 - Add rate limiting around campaign generation.
