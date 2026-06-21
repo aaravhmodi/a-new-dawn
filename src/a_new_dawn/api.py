@@ -41,8 +41,8 @@ def signup(request: SignupRequest) -> SessionResponse:
         "data": {"handle": request.handle},
     }
     headers = {
-        "apikey": settings.supabase_anon_key,
-        "Authorization": f"Bearer {settings.supabase_anon_key}",
+        "apikey": settings.resolved_publishable_key,
+        "Authorization": f"Bearer {settings.resolved_publishable_key}",
     }
     response = httpx.post(f"{settings.supabase_url}/auth/v1/signup", json=payload, headers=headers, timeout=30.0)
     response.raise_for_status()
@@ -60,8 +60,8 @@ def signup(request: SignupRequest) -> SessionResponse:
 @app.post("/auth/login", response_model=SessionResponse)
 def login(request: LoginRequest) -> SessionResponse:
     headers = {
-        "apikey": settings.supabase_anon_key,
-        "Authorization": f"Bearer {settings.supabase_anon_key}",
+        "apikey": settings.resolved_publishable_key,
+        "Authorization": f"Bearer {settings.resolved_publishable_key}",
     }
     payload = {"email": request.email, "password": request.password}
     response = httpx.post(

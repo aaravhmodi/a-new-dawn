@@ -17,6 +17,7 @@ This repo now contains a working scaffold for a choice-driven CLI RPG with:
    - [20260621112500_initial_schema.sql](C:\Users\upsid\documents\projects\star wars\supabase\migrations\20260621112500_initial_schema.sql)
    - [20260621120500_seed_content.sql](C:\Users\upsid\documents\projects\star wars\supabase\migrations\20260621120500_seed_content.sql)
 3. Copy `.env.example` to `.env` and fill in your keys.
+   `SUPABASE_DB_URL` is still required and was left blank because it was not provided.
 4. Install dependencies:
 
 ```bash
@@ -42,6 +43,7 @@ a-new-dawn new-campaign --player-class smuggler --era galactic_civil_war --plane
 - Supabase Auth creates `auth.users`; the trigger in the migration creates `public.profiles`.
 - The CLI stores a local session file with `user_id` and Supabase access token.
 - AI generation happens on the backend through the OpenAI API.
+- AI generation can also run through `modelrelay` or Ollama using the same OpenAI-compatible client shape.
 - Episode plans are stored in `episode_plans.plan_json`.
 - Rendered scenes and resolved choices are stored in `scene_history` and `choice_history`.
 

@@ -72,8 +72,10 @@ class SceneNarrationModel(BaseModel):
 class AIService:
     def __init__(self) -> None:
         settings = get_settings()
-        self.model = settings.openai_model
-        self.client = OpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
+        self.model = settings.llm_model
+        api_key = settings.llm_api_key
+        base_url = settings.llm_base_url
+        self.client = OpenAI(api_key=api_key, base_url=base_url) if api_key else None
 
     def generate_campaign_arc(self, *, player_class: str, era: str, planet: str, seed: int) -> dict[str, Any]:
         prompt = f"""

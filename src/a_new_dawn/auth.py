@@ -76,7 +76,7 @@ class SupabaseJWTVerifier:
     def _refresh_jwks(self, *, force: bool = False) -> None:
         if not force and self._jwks is not None and time.time() <= self._jwks_expiry:
             return
-        response = httpx.get(settings.supabase_jwks_url, timeout=15.0)
+        response = httpx.get(settings.resolved_supabase_jwks_url, timeout=15.0)
         response.raise_for_status()
         self._jwks = response.json()
         self._jwks_expiry = time.time() + 300

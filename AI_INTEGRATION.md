@@ -59,12 +59,16 @@ Put these in `.env`:
 ```env
 SUPABASE_DB_URL=postgresql+psycopg://...
 SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_SECRET_KEY=...
 SUPABASE_JWT_AUDIENCE=authenticated
 SUPABASE_JWT_ISSUER=https://your-project.supabase.co/auth/v1
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-4.1-mini
+SUPABASE_JWKS_URL=https://your-project.supabase.co/auth/v1/.well-known/jwks.json
+LLM_PROVIDER=modelrelay
+MODELRELAY_BASE_URL=http://127.0.0.1:7352/v1
+MODELRELAY_API_KEY=dummy-key
+MODELRELAY_MODEL=auto-fastest
 ```
 
 ## How to make the AI better
