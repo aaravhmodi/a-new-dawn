@@ -4,6 +4,7 @@ import json
 import random
 from typing import Any
 
+import httpx
 from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
 
@@ -72,10 +73,12 @@ class SceneNarrationModel(BaseModel):
 class AIService:
     def __init__(self) -> None:
         settings = get_settings()
+        self.provider = settings.llm_provider.lower()
         self.model = settings.llm_model
         api_key = settings.llm_api_key
         base_url = settings.llm_base_url
-        self.client = OpenAI(api_key=api_key, base_url=base_url) if api_key else None
+        self.client = None if self.provider == "ollama" else (OpenAI(api_key=api_key, base_url=base_url) if api_key else None)
+        self.ollama_base_url = settings.ollama_base_url
 
     def generate_campaign_arc(self, *, player_class: str, era: str, planet: str, seed: int) -> dict[str, Any]:
         prompt = f"""
@@ -154,6 +157,15 @@ Player stats:
         return self._validated_json_response(prompt, SceneNarrationModel, fallback).model_dump()
 
     def narrate_resolution(self, *, scene_title: str, choice_label: str, outcome: str) -> str:
+        if self.provider == "ollama":
+            prompt = f"""
+Write one short cinematic paragraph for a Star Wars game resolution.
+Scene: {scene_title}
+Choice: {choice_label}
+Outcome: {outcome}
+"""
+            return self._ollama_text_response(prompt) or outcome
+
         if not self.client:
             return outcome
 
@@ -167,6 +179,21 @@ Outcome: {outcome}
         return response.output_text.strip() or outcome
 
     def _validated_json_response(self, prompt: str, model_type: type[BaseModel], fallback: BaseModel) -> BaseModel:
+        if self.provider == "ollama":
+            last_error: Exception | None = None
+            for _ in range(3):
+                text = self._ollama_text_response(
+                    prompt + f"\nReturn valid JSON only. Use this schema shape: {json.dumps(model_type.model_json_schema())}"
+                )
+                if not text:
+                    continue
+                try:
+                    return model_type.model_validate(json.loads(text))
+                except (json.JSONDecodeError, ValidationError) as exc:
+                    last_error = exc
+                    continue
+            return fallback
+
         if not self.client:
             return fallback
 
@@ -186,6 +213,20 @@ Outcome: {outcome}
         if last_error:
             return fallback
         return fallback
+
+    def _ollama_text_response(self, prompt: str) -> str:
+        response = httpx.post(
+            f"{self.ollama_base_url}/generate",
+            json={
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False,
+            },
+            timeout=120.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return (data.get("response") or "").strip()
 
     def _fallback_episode_plan(self, campaign_arc: dict[str, Any], episode_number: int, player_class: str) -> dict[str, Any]:
         prefix = f"ep{episode_number}"

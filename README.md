@@ -44,6 +44,7 @@ a-new-dawn new-campaign --player-class smuggler --era galactic_civil_war --plane
 - The CLI stores a local session file with `user_id` and Supabase access token.
 - AI generation happens on the backend through the OpenAI API.
 - AI generation can also run through `modelrelay` or Ollama using the same OpenAI-compatible client shape.
+- AI generation can also run through native Ollama HTTP endpoints with no OpenAI compatibility layer.
 - Episode plans are stored in `episode_plans.plan_json`.
 - Rendered scenes and resolved choices are stored in `scene_history` and `choice_history`.
 

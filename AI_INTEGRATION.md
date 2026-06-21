@@ -69,6 +69,8 @@ LLM_PROVIDER=modelrelay
 MODELRELAY_BASE_URL=http://127.0.0.1:7352/v1
 MODELRELAY_API_KEY=dummy-key
 MODELRELAY_MODEL=auto-fastest
+OLLAMA_BASE_URL=http://localhost:11434/api
+OLLAMA_MODEL=gemma3:latest
 ```
 
 ## How to make the AI better

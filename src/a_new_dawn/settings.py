@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     modelrelay_base_url: str = "http://127.0.0.1:7352/v1"
     modelrelay_api_key: str = "dummy-key"
     modelrelay_model: str = "auto-fastest"
-    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_base_url: str = "http://localhost:11434/api"
     ollama_model: str = "gemma3:latest"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
