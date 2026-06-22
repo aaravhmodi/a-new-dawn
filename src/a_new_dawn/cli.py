@@ -89,6 +89,28 @@ def _render_scene(scene: dict[str, Any]) -> None:
     console.print(choices)
 
 
+def _play_scene_loop(client: httpx.Client, campaign_id: str, scene: dict[str, Any]) -> None:
+    current_scene = scene
+    while current_scene:
+        _render_scene(current_scene)
+        choice_index = typer.prompt(f"Choose an option (1-{len(current_scene['choices'])})", type=int)
+        if choice_index < 1 or choice_index > len(current_scene["choices"]):
+            raise typer.BadParameter("Choice out of range.")
+
+        selected = current_scene["choices"][choice_index - 1]
+        result_response = client.post(
+            f"/campaigns/{campaign_id}/choose",
+            json={"choice_key": selected["choice_key"]},
+            headers=_headers(),
+        )
+        _raise_with_detail(result_response)
+        result = result_response.json()
+        console.print(Panel.fit(result["resolution_text"], border_style="green"))
+        current_scene = result["next_scene"]
+
+    console.print("[bold green]Campaign segment complete.[/bold green]")
+
+
 def _check(name: str, ok: bool, detail: str) -> tuple[str, str, str]:
     return (name, "[green]ok[/green]" if ok else "[red]fail[/red]", detail)
 
@@ -151,7 +173,7 @@ def new_campaign(
     session = _load_session()
     session["campaign_id"] = campaign["campaign_id"]
     _save_session(session)
-    _render_scene(scene)
+    _play_scene_loop(client, campaign["campaign_id"], scene)
 
 
 @app.command()
@@ -165,25 +187,7 @@ def play() -> None:
         scene_response = client.get(f"/campaigns/{campaign_id}/current-scene", headers=_headers())
         _raise_with_detail(scene_response)
         scene = scene_response.json()
-
-        while scene:
-            _render_scene(scene)
-            choice_index = typer.prompt("Choose an option", type=int)
-            if choice_index < 1 or choice_index > len(scene["choices"]):
-                raise typer.BadParameter("Choice out of range.")
-
-            selected = scene["choices"][choice_index - 1]
-            result_response = client.post(
-                f"/campaigns/{campaign_id}/choose",
-                json={"choice_key": selected["choice_key"]},
-                headers=_headers(),
-            )
-            _raise_with_detail(result_response)
-            result = result_response.json()
-            console.print(Panel.fit(result["resolution_text"], border_style="green"))
-            scene = result["next_scene"]
-
-    console.print("[bold green]Campaign segment complete.[/bold green]")
+        _play_scene_loop(client, campaign_id, scene)
 
 
 @app.command()

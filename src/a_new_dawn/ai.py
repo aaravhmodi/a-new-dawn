@@ -262,49 +262,55 @@ Outcome: {outcome}
         return fallback
 
     def _ollama_text_response(self, prompt: str) -> str:
-        response = httpx.post(
-            f"{self.ollama_base_url}/generate",
-            json={
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-            },
-            timeout=120.0,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return (data.get("response") or "").strip()
+        try:
+            response = httpx.post(
+                f"{self.ollama_base_url}/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                },
+                timeout=120.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return (data.get("response") or "").strip()
+        except Exception:
+            return ""
 
     def _gemini_text_response(self, prompt: str) -> str:
         if not self.gemini_api_key:
             return ""
-        response = httpx.post(
-            f"{self.gemini_base_url}/models/{self.model}:generateContent",
-            headers={
-                "Content-Type": "application/json",
-                "X-goog-api-key": self.gemini_api_key,
-            },
-            json={
-                "contents": [
-                    {
-                        "parts": [
-                            {
-                                "text": prompt,
-                            }
-                        ]
-                    }
-                ]
-            },
-            timeout=120.0,
-        )
-        response.raise_for_status()
-        data = response.json()
-        candidates = data.get("candidates", [])
-        if not candidates:
+        try:
+            response = httpx.post(
+                f"{self.gemini_base_url}/models/{self.model}:generateContent",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-goog-api-key": self.gemini_api_key,
+                },
+                json={
+                    "contents": [
+                        {
+                            "parts": [
+                                {
+                                    "text": prompt,
+                                }
+                            ]
+                        }
+                    ]
+                },
+                timeout=120.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+            candidates = data.get("candidates", [])
+            if not candidates:
+                return ""
+            parts = candidates[0].get("content", {}).get("parts", [])
+            text_parts = [part.get("text", "") for part in parts if part.get("text")]
+            return "\n".join(text_parts).strip()
+        except Exception:
             return ""
-        parts = candidates[0].get("content", {}).get("parts", [])
-        text_parts = [part.get("text", "") for part in parts if part.get("text")]
-        return "\n".join(text_parts).strip()
 
     def _fallback_episode_plan(self, campaign_arc: dict[str, Any], episode_number: int, player_class: str) -> dict[str, Any]:
         prefix = f"ep{episode_number}"
