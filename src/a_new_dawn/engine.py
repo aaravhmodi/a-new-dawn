@@ -207,11 +207,18 @@ class GameEngine:
 
         next_scene_key = choice["next_scene_key"]
         if next_scene_key == "END":
-            self.store.update("episode_plans", filters={"id": episode["id"]}, payload={"status": "completed"})
-            self.store.update(
-                "campaigns",
-                filters={"id": campaign_id},
-                payload={"status": "completed", "current_scene_key": None, "updated_at": self._utc_now()},
+            ending = self._resolve_ending(
+                campaign=campaign,
+                state=state,
+                final_choice=choice,
+                scene=scene,
+                resolution_text=resolution_text,
+            )
+            self._finalize_campaign(
+                campaign=campaign,
+                campaign_id=campaign_id,
+                episode=episode,
+                ending=ending,
             )
             next_scene = None
         else:
@@ -222,7 +229,13 @@ class GameEngine:
             )
             next_scene = self.get_current_scene(campaign_id=campaign_id, user_id=user_id)
 
-        return ChoiceResult(resolution_text=resolution_text, next_scene=next_scene)
+        return ChoiceResult(
+            resolution_text=resolution_text,
+            next_scene=next_scene,
+            ending_key=ending["ending_key"] if next_scene is None else None,
+            ending_title=ending["ending_title"] if next_scene is None else None,
+            ending_summary=ending["ending_summary"] if next_scene is None else None,
+        )
 
     def _choose_set_piece(
         self,
@@ -305,6 +318,131 @@ class GameEngine:
             next_scene = self.get_current_scene(campaign_id=campaign_id, user_id=user_id)
 
         return ChoiceResult(resolution_text=resolution_text, next_scene=next_scene)
+
+    def _finalize_campaign(self, *, campaign: dict, campaign_id: UUID, episode: dict, ending: dict[str, str]) -> None:
+        story_arc = dict(campaign.get("story_arc", {}))
+        story_arc["ending"] = ending
+        self.store.update("episode_plans", filters={"id": episode["id"]}, payload={"status": "completed"})
+        self.store.update(
+            "campaigns",
+            filters={"id": campaign_id},
+            payload={
+                "status": "completed",
+                "current_scene_key": None,
+                "story_arc": story_arc,
+                "updated_at": self._utc_now(),
+            },
+        )
+
+    def _resolve_ending(
+        self,
+        *,
+        campaign: dict,
+        state: dict,
+        final_choice: dict,
+        scene: dict,
+        resolution_text: str,
+    ) -> dict[str, str]:
+        story_flags = {row["flag_key"] for row in self.store.select("story_flags", filters={"campaign_id": campaign["id"]})}
+        watcher = self.store.select_one(
+            "relationships",
+            filters={"campaign_id": campaign["id"], "character_key": "watcher_nine"},
+        )
+        watcher_score = int(watcher["score"]) if watcher else 0
+        final_choice_key = final_choice["choice_key"]
+        dominant_path = self._dominant_path(state)
+        set_piece_state = scene.get("set_piece") is not None
+
+        if state["health"] <= 0 or (set_piece_state and self._scene_heat_from_resolution(campaign["id"], scene["scene_key"]) >= 4 and self._scene_cover_from_resolution(campaign["id"], scene["scene_key"]) <= 0):
+            return {
+                "ending_key": "burned_cover",
+                "ending_title": "Burned Cover",
+                "ending_summary": "Rylos survives, but the mission burns through every layer of protection. He disappears into the storm as a wanted ghost, hunted by every side that now knows his name.",
+            }
+
+        if dominant_path == "light":
+            if final_choice_key == "report_keeper":
+                return {
+                    "ending_key": "dawn_agent",
+                    "ending_title": "The Dawn Agent",
+                    "ending_summary": "Rylos turns the evidence over to Watcher Nine and becomes the kind of agent the Empire never intended to create: a quiet protector working from inside the machine.",
+                }
+            if final_choice_key == "keep_blackmail_copy":
+                return {
+                    "ending_key": "gentle_renegade",
+                    "ending_title": "The Gentle Renegade",
+                    "ending_summary": "Rylos keeps one clean copy for himself and walks away with a conscience intact. He is now useful to the Empire, but no longer owned by it.",
+                }
+            return {
+                "ending_key": "bright_exile",
+                "ending_title": "The Bright Exile",
+                "ending_summary": "Rylos burns the files, rejects the mission's leverage, and vanishes into the unknown as a Force-sensitive exile who refuses to be turned into a weapon.",
+            }
+
+        if dominant_path == "dark":
+            if final_choice_key == "report_keeper":
+                return {
+                    "ending_key": "vader_asset",
+                    "ending_title": "Vader's Asset",
+                    "ending_summary": "The report reaches the top of the chain, and Rylos becomes a promising blade in a darker game. He gains rank, fear, and the attention of powers that do not forgive mistakes.",
+                }
+            if final_choice_key == "keep_blackmail_copy":
+                return {
+                    "ending_key": "blackmail_kingpin",
+                    "ending_title": "Blackmail Kingpin",
+                    "ending_summary": "Rylos keeps the leverage, cuts a private path through the underworld, and becomes the one everyone else pays to avoid. He wins the shadows, but loses the daylight.",
+                }
+            return {
+                "ending_key": "shrouded_executor",
+                "ending_title": "The Shrouded Executor",
+                "ending_summary": "Rylos destroys the files and embraces precision over loyalty. He leaves no trace except fear and a growing list of names that should have stayed hidden.",
+            }
+
+        if final_choice_key == "report_keeper":
+            return {
+                "ending_key": "free_agent",
+                "ending_title": "The Free Agent",
+                "ending_summary": "Rylos reports the truth, but not all of it. He earns trust from Watcher Nine while keeping enough distance to stay his own man.",
+            }
+        if final_choice_key == "keep_blackmail_copy":
+            return {
+                "ending_key": "ghost_broker",
+                "ending_title": "Ghost Broker",
+                "ending_summary": "Rylos holds the evidence close and starts trading in secrets. He becomes a silent broker between factions, never fully seen and never fully safe.",
+            }
+        return {
+            "ending_key": "silent_wanderer",
+            "ending_title": "The Silent Wanderer",
+            "ending_summary": "Rylos burns the files and disappears into the margins. He is alive, unclaimed, and harder to find than any of the people hunting him.",
+        }
+
+    def _dominant_path(self, state: dict) -> str:
+        light_score = int(state.get("light_score", 0))
+        dark_score = int(state.get("dark_score", 0))
+        independent_score = int(state.get("independent_score", 0))
+        if light_score >= dark_score and light_score >= independent_score:
+            return "light"
+        if dark_score >= light_score and dark_score >= independent_score:
+            return "dark"
+        return "independent"
+
+    def _scene_heat_from_resolution(self, campaign_id: UUID, scene_key: str) -> int:
+        instance = self.store.select_one(
+            "scene_instances",
+            filters={"campaign_id": campaign_id, "scene_key": scene_key},
+        )
+        if not instance:
+            return 0
+        return int(instance.get("resolution_json", {}).get("action_state", {}).get("heat", 0))
+
+    def _scene_cover_from_resolution(self, campaign_id: UUID, scene_key: str) -> int:
+        instance = self.store.select_one(
+            "scene_instances",
+            filters={"campaign_id": campaign_id, "scene_key": scene_key},
+        )
+        if not instance:
+            return 0
+        return int(instance.get("resolution_json", {}).get("action_state", {}).get("cover", 0))
 
     def _apply_effects(self, *, campaign_id: UUID, episode_number: int, state: dict, effects: dict) -> None:
         updated_state = {

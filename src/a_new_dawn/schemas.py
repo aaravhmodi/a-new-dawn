@@ -71,3 +71,6 @@ class ChooseRequest(BaseModel):
 class ChoiceResult(BaseModel):
     resolution_text: str
     next_scene: SceneResponse | None
+    ending_key: str | None = None
+    ending_title: str | None = None
+    ending_summary: str | None = None
