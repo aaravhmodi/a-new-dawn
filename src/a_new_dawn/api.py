@@ -2,13 +2,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-import httpx
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException
-from sqlalchemy.orm import Session
 
 from a_new_dawn.auth import AuthenticatedUser, get_current_user
-from a_new_dawn.db import get_db
 from a_new_dawn.engine import GameEngine
 from a_new_dawn.schemas import (
     CampaignCreateRequest,
@@ -21,11 +18,13 @@ from a_new_dawn.schemas import (
     SignupRequest,
 )
 from a_new_dawn.settings import get_settings
+from a_new_dawn.supabase_store import SupabaseStore
 
 
 settings = get_settings()
 app = FastAPI(title="STAR WARS: A NEW DAWN API")
-engine = GameEngine()
+store = SupabaseStore()
+engine = GameEngine(store=store)
 
 
 @app.get("/healthz")
@@ -35,18 +34,7 @@ def healthz() -> dict[str, str]:
 
 @app.post("/auth/signup", response_model=SessionResponse)
 def signup(request: SignupRequest) -> SessionResponse:
-    payload = {
-        "email": request.email,
-        "password": request.password,
-        "data": {"handle": request.handle},
-    }
-    headers = {
-        "apikey": settings.resolved_publishable_key,
-        "Authorization": f"Bearer {settings.resolved_publishable_key}",
-    }
-    response = httpx.post(f"{settings.supabase_url}/auth/v1/signup", json=payload, headers=headers, timeout=30.0)
-    response.raise_for_status()
-    data = response.json()
+    data = store.signup(email=request.email, password=request.password, handle=request.handle)
     user = data["user"]
     session = data.get("session") or {}
     return SessionResponse(
@@ -59,19 +47,7 @@ def signup(request: SignupRequest) -> SessionResponse:
 
 @app.post("/auth/login", response_model=SessionResponse)
 def login(request: LoginRequest) -> SessionResponse:
-    headers = {
-        "apikey": settings.resolved_publishable_key,
-        "Authorization": f"Bearer {settings.resolved_publishable_key}",
-    }
-    payload = {"email": request.email, "password": request.password}
-    response = httpx.post(
-        f"{settings.supabase_url}/auth/v1/token?grant_type=password",
-        json=payload,
-        headers=headers,
-        timeout=30.0,
-    )
-    response.raise_for_status()
-    data = response.json()
+    data = store.login(email=request.email, password=request.password)
     user = data["user"]
     return SessionResponse(
         user_id=user["id"],
@@ -82,47 +58,33 @@ def login(request: LoginRequest) -> SessionResponse:
 @app.post("/campaigns", response_model=CampaignSummary)
 def create_campaign(
     request: CampaignCreateRequest,
-    db: Session = Depends(get_db),
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> CampaignSummary:
     try:
-        return engine.create_campaign(db, user_id=user.user_id, request=request)
+        return engine.create_campaign(user_id=user.user_id, request=request)
     except Exception as exc:
-        db.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/campaigns/{campaign_id}", response_model=CampaignSummary)
 def get_campaign_summary(
     campaign_id: UUID,
-    db: Session = Depends(get_db),
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> CampaignSummary:
-    from a_new_dawn.repository import get_campaign
-
-    campaign = get_campaign(db, campaign_id, user.user_id)
-    if campaign is None:
-        raise HTTPException(status_code=404, detail="Campaign not found.")
-    return CampaignSummary(
-        campaign_id=campaign.id,
-        title=campaign.title,
-        player_class=campaign.player_class.value,
-        current_episode=campaign.current_episode,
-        current_scene_key=campaign.current_scene_key,
-        story_arc=campaign.story_arc,
-    )
+    try:
+        return engine.get_campaign_summary(campaign_id=campaign_id, user_id=user.user_id)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/campaigns/{campaign_id}/current-scene", response_model=SceneResponse)
 def current_scene(
     campaign_id: UUID,
-    db: Session = Depends(get_db),
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> SceneResponse:
     try:
-        return engine.get_current_scene(db, campaign_id=campaign_id, user_id=user.user_id)
+        return engine.get_current_scene(campaign_id=campaign_id, user_id=user.user_id)
     except Exception as exc:
-        db.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
@@ -130,13 +92,11 @@ def current_scene(
 def choose(
     campaign_id: UUID,
     request: ChooseRequest,
-    db: Session = Depends(get_db),
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> ChoiceResult:
     try:
-        return engine.choose(db, campaign_id=campaign_id, user_id=user.user_id, choice_key=request.choice_key)
+        return engine.choose(campaign_id=campaign_id, user_id=user.user_id, choice_key=request.choice_key)
     except Exception as exc:
-        db.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
