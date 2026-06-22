@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    supabase_db_url: str
+    supabase_db_url: str = ""
     supabase_url: str
     supabase_publishable_key: str = ""
     supabase_anon_key: str = ""
@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     @property
     def resolved_publishable_key(self) -> str:
         return self.supabase_publishable_key or self.supabase_anon_key
+
+    @property
+    def resolved_server_key(self) -> str:
+        return self.supabase_service_role_key or self.supabase_secret_key or self.resolved_publishable_key
 
     @property
     def llm_base_url(self) -> str | None:

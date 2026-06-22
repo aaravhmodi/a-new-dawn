@@ -64,4 +64,3 @@ class ChooseRequest(BaseModel):
 class ChoiceResult(BaseModel):
     resolution_text: str
     next_scene: SceneResponse | None
-
