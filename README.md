@@ -34,7 +34,7 @@ a-new-dawn-api
 
 ```bash
 a-new-dawn signup --email you@example.com --password "your-password" --handle aarav
-a-new-dawn new-campaign --player-class smuggler --era galactic_civil_war --planet corellia
+a-new-dawn new-campaign
 ```
 
 ## Architecture

@@ -122,7 +122,11 @@ def login(email: str, password: str) -> None:
 
 
 @app.command("new-campaign")
-def new_campaign(player_class: str = "smuggler", era: str = "galactic_civil_war", planet: str = "corellia") -> None:
+def new_campaign(
+    player_class: str = typer.Option("smuggler", "--player-class", hidden=True),
+    era: str = typer.Option("galactic_civil_war", "--era", hidden=True),
+    planet: str = typer.Option("corellia", "--planet", hidden=True),
+) -> None:
     with _client() as client:
         response = client.post(
             "/campaigns",
