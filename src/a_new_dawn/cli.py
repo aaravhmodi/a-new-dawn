@@ -128,11 +128,12 @@ def _play_scene_loop(client: httpx.Client, campaign_id: str, scene: dict[str, An
             raise typer.BadParameter("Choice out of range.")
 
         selected = current_scene["choices"][choice_index - 1]
-        result_response = client.post(
-            f"/campaigns/{campaign_id}/choose",
-            json={"choice_key": selected["choice_key"]},
-            headers=_headers(),
-        )
+        with console.status("[bold yellow]Transmitting to Imperial relay...[/bold yellow]", spinner="dots"):
+            result_response = client.post(
+                f"/campaigns/{campaign_id}/choose",
+                json={"choice_key": selected["choice_key"]},
+                headers=_headers(),
+            )
         _raise_with_detail(result_response)
         result = result_response.json()
         console.print(Panel.fit(result["resolution_text"], border_style="green"))

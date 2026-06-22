@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -192,11 +193,40 @@ class GameEngine:
 
         self._apply_effects(campaign_id=campaign_id, episode_number=campaign["current_episode"], state=state, effects=choice.get("effects", {}))
 
-        resolution_text = self.ai.narrate_resolution(
-            scene_title=scene["title"],
-            choice_label=choice["label"],
-            outcome=choice.get("outcome", ""),
-        )
+        next_scene_key = choice["next_scene_key"]
+        is_ending = next_scene_key == "END"
+
+        if not is_ending:
+            next_scene_key = self._canonical_scene_key(next_scene_key)
+            if not self._scene_key_exists(episode["plan_json"], next_scene_key):
+                raise ValueError(
+                    f"Choice '{choice_key}' points to missing scene '{next_scene_key}' in episode {campaign['current_episode']}."
+                )
+            self.store.update(
+                "campaigns",
+                filters={"id": campaign_id},
+                payload={"current_scene_key": next_scene_key, "updated_at": self._utc_now()},
+            )
+
+        # Run AI narration and next-scene load concurrently to cut wait time in half.
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            resolution_future = pool.submit(
+                self.ai.narrate_resolution,
+                scene_title=scene["title"],
+                choice_label=choice["label"],
+                outcome=choice.get("outcome", ""),
+            )
+            if is_ending:
+                next_scene_future = None
+            else:
+                next_scene_future = pool.submit(
+                    self.get_current_scene,
+                    campaign_id=campaign_id,
+                    user_id=user_id,
+                )
+
+        resolution_text = resolution_future.result()
+        next_scene = next_scene_future.result() if next_scene_future else None
 
         if instance:
             self.store.update(
@@ -229,8 +259,7 @@ class GameEngine:
             },
         )
 
-        next_scene_key = choice["next_scene_key"]
-        if next_scene_key == "END":
+        if is_ending:
             ending = self._resolve_ending(
                 campaign=campaign,
                 state=state,
@@ -243,25 +272,13 @@ class GameEngine:
                 ending=ending,
             )
             next_scene = None
-        else:
-            next_scene_key = self._canonical_scene_key(next_scene_key)
-            if not self._scene_key_exists(episode["plan_json"], next_scene_key):
-                raise ValueError(
-                    f"Choice '{choice_key}' points to missing scene '{next_scene_key}' in episode {campaign['current_episode']}."
-                )
-            self.store.update(
-                "campaigns",
-                filters={"id": campaign_id},
-                payload={"current_scene_key": next_scene_key, "updated_at": self._utc_now()},
-            )
-            next_scene = self.get_current_scene(campaign_id=campaign_id, user_id=user_id)
 
         return ChoiceResult(
             resolution_text=resolution_text,
             next_scene=next_scene,
-            ending_key=ending["ending_key"] if next_scene is None else None,
-            ending_title=ending["ending_title"] if next_scene is None else None,
-            ending_summary=ending["ending_summary"] if next_scene is None else None,
+            ending_key=ending["ending_key"] if is_ending else None,
+            ending_title=ending["ending_title"] if is_ending else None,
+            ending_summary=ending["ending_summary"] if is_ending else None,
         )
 
     def _choose_set_piece(

@@ -273,7 +273,7 @@ Outcome: {outcome}
                     "prompt": prompt,
                     "stream": False,
                 },
-                timeout=120.0,
+                timeout=8.0,
             )
             response.raise_for_status()
             data = response.json()
@@ -302,7 +302,7 @@ Outcome: {outcome}
                         }
                     ]
                 },
-                timeout=120.0,
+                timeout=8.0,
             )
             response.raise_for_status()
             data = response.json()
@@ -460,7 +460,7 @@ Outcome: {outcome}
                             "label": "Disappear into the crowd",
                             "description": "Stay calm, look like a regular, and let the sweep move past you.",
                             "outcome": f"Rylos nurses his drink and mirrors the locals. {rival}'s sweep team logs him as background and moves on.",
-                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "next_scene_key": f"{prefix}_safehouse_debrief",
                             "effects": {"light_delta": 1, "set_flags": ["karn_unsuspicious"]},
                         },
                         {
@@ -468,7 +468,7 @@ Outcome: {outcome}
                             "label": f"Feed {rival} a false lead",
                             "description": "Point the warden's team toward a different encryption buyer to redirect the sweep.",
                             "outcome": f"A whispered tip sends {rival}'s team toward the wrong end of the market. Rylos walks out while they are still logging the false lead.",
-                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "next_scene_key": f"{prefix}_safehouse_debrief",
                             "effects": {"dark_delta": 1, "independent_delta": 1, "set_flags": ["karn_misdirected"]},
                         },
                         {
@@ -476,7 +476,7 @@ Outcome: {outcome}
                             "label": f"Signal {second_ally} for a diversion",
                             "description": "Have your field partner pull the sweep team away from the market.",
                             "outcome": f"{second_ally} triggers a minor disturbance two blocks over. {rival} moves to contain it, and Rylos slips out of the merchant quarter clean.",
-                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "next_scene_key": f"{prefix}_safehouse_debrief",
                             "effects": {"relationship_deltas": {"veska_tal": 2}, "set_flags": ["karn_diverted"]},
                         },
                     ],
@@ -491,7 +491,7 @@ Outcome: {outcome}
                             "label": "Disappear into the crowd",
                             "description": "Change your silhouette and stay in motion to blur the description.",
                             "outcome": f"Rylos sheds his outer jacket, adjusts his gait, and becomes unremarkable. {rival}'s officers study the crowd and mark him as a non-match.",
-                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "next_scene_key": f"{prefix}_safehouse_debrief",
                             "effects": {"light_delta": 1, "set_flags": ["karn_unsuspicious"]},
                         },
                         {
@@ -499,7 +499,7 @@ Outcome: {outcome}
                             "label": f"Feed {rival} a false lead",
                             "description": "Point security toward a different operative who fits the description better.",
                             "outcome": f"A quiet word redirects {rival}'s attention toward a known freelancer three blocks away. Rylos is off the description before the report is even updated.",
-                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "next_scene_key": f"{prefix}_safehouse_debrief",
                             "effects": {"dark_delta": 1, "independent_delta": 1, "set_flags": ["karn_misdirected"]},
                         },
                         {
@@ -507,7 +507,7 @@ Outcome: {outcome}
                             "label": f"Signal {second_ally} for a diversion",
                             "description": "Have your field partner create an incident that demands Karn's personal attention.",
                             "outcome": f"{second_ally} manufactures a security alert one district over. {rival} responds in person — the description ceases to be his priority for long enough to matter.",
-                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "next_scene_key": f"{prefix}_safehouse_debrief",
                             "effects": {"relationship_deltas": {"veska_tal": 2}, "set_flags": ["karn_diverted"]},
                         },
                     ],
@@ -522,7 +522,7 @@ Outcome: {outcome}
                             "label": "Disappear into the crowd",
                             "description": "Stay still and unremarkable while Karn's team triangulates the signal source.",
                             "outcome": f"Rylos orders another drink and does nothing suspicious. {rival}'s team traces the signal to a public relay post and logs it as ambient chatter.",
-                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "next_scene_key": f"{prefix}_safehouse_debrief",
                             "effects": {"light_delta": 1, "set_flags": ["karn_unsuspicious"]},
                         },
                         {
@@ -530,7 +530,7 @@ Outcome: {outcome}
                             "label": f"Feed {rival} a false lead",
                             "description": "Introduce noise into the signal trail that points Karn in the wrong direction.",
                             "outcome": f"A second burst signal — false, planted — fires from a location two streets over. {rival}'s team pivots toward the louder signature and loses the original thread.",
-                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "next_scene_key": f"{prefix}_safehouse_debrief",
                             "effects": {"dark_delta": 1, "independent_delta": 1, "set_flags": ["karn_misdirected"]},
                         },
                         {
@@ -538,8 +538,70 @@ Outcome: {outcome}
                             "label": f"Signal {second_ally} for a diversion",
                             "description": "Have your field partner pull the surveillance team away before they finish triangulating.",
                             "outcome": f"{second_ally} creates a scene loud enough to demand {rival}'s direct attention. The surveillance team abandons the signal trace before it resolves to Rylos.",
-                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "next_scene_key": f"{prefix}_safehouse_debrief",
                             "effects": {"relationship_deltas": {"veska_tal": 2}, "set_flags": ["karn_diverted"]},
+                        },
+                    ],
+                },
+                {
+                    "scene_key": f"{prefix}_safehouse_debrief",
+                    "title": "The Safe House",
+                    "prompt": f"Rylos slips into a rented room above a repair depot — the kind of place that doesn't log guests. {second_ally} is already there, spreading decrypted fragments across a portable display. The contact's data confirmed what the intercept suggested: the archive contains something classified beyond standard Imperial grade. Outside, the city is quiet. That never lasts.",
+                    "choices": [
+                        {
+                            "choice_key": "review_data",
+                            "label": "Review the decrypted fragments",
+                            "description": "Study the archive data before moving — know exactly what you are after.",
+                            "outcome": f"The fragments sketch the outline of a weapons codex older than the Empire itself. {second_ally} flags one entry: coordinates for a listening post no official record acknowledges.",
+                            "next_scene_key": f"{prefix}_shadow_pursuit",
+                            "effects": {"light_delta": 1, "set_flags": ["studied_codex_fragments"]},
+                        },
+                        {
+                            "choice_key": "plan_exfil",
+                            "label": "Plan the exfiltration route first",
+                            "description": "Map the exit before the entry — if the archive goes loud, you need a clean way out.",
+                            "outcome": f"Rylos identifies three exit corridors, two of which {rival} does not have covered yet. He marks them and commits the map to memory.",
+                            "next_scene_key": f"{prefix}_shadow_pursuit",
+                            "effects": {"independent_delta": 1, "set_flags": ["exfil_route_planned"]},
+                        },
+                        {
+                            "choice_key": "rest_brief",
+                            "label": "Take an hour and rest",
+                            "description": "You have been running since the shuttle. A short rest sharpens the edge.",
+                            "outcome": f"Rylos closes his eyes for an hour. When {second_ally} wakes him, something feels different — a low, persistent hum at the edge of his awareness. He does not mention it.",
+                            "next_scene_key": f"{prefix}_shadow_pursuit",
+                            "effects": {"health_delta": 10, "dark_delta": 1, "set_flags": ["force_hum_noticed"]},
+                        },
+                    ],
+                },
+                {
+                    "scene_key": f"{prefix}_shadow_pursuit",
+                    "title": "The Shadow on Your Heels",
+                    "prompt": f"Moving toward the archive annex, Rylos notices a tail — professional, patient, switching between two operatives to avoid pattern recognition. This is not {rival}'s style. Someone else has been watching since the cantina, and they are good enough that Rylos only caught them because of that strange new awareness humming behind his eyes.",
+                    "choices": [
+                        {
+                            "choice_key": "lose_the_tail",
+                            "label": "Lose them in the transit hub",
+                            "description": "Use the crowded station interchange to break the surveillance line cleanly.",
+                            "outcome": "Three platform changes, a service corridor, and a borrowed vendor coat. The tail goes cold. Whoever they were, they will need twenty minutes to reacquire.",
+                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "effects": {"independent_delta": 1, "set_flags": ["tail_lost"]},
+                        },
+                        {
+                            "choice_key": "confront_tail",
+                            "label": "Double back and confront the follower",
+                            "description": "Flip the dynamic — you become the threat before they know you made them.",
+                            "outcome": f"The operative freezes in a doorway. Not Imperial — civilian clothes, no badge code, a data chip pressed into their palm before they bolt. The chip holds one word: Null.",
+                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "effects": {"dark_delta": 1, "independent_delta": 1, "set_flags": ["null_chip_recovered", "tail_confronted"]},
+                        },
+                        {
+                            "choice_key": "signal_veska",
+                            "label": f"Signal {second_ally} to intercept the tail",
+                            "description": "Let your partner handle the surveillance problem while you stay on approach.",
+                            "outcome": f"{second_ally} peels off and the comms go quiet for four minutes. When she checks back in, her voice is steady: 'Handled. Keep moving.'",
+                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "effects": {"relationship_deltas": {"veska_tal": 3}, "set_flags": ["veska_handled_tail"]},
                         },
                     ],
                 },
