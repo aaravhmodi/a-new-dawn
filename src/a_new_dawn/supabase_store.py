@@ -84,7 +84,12 @@ class SupabaseStore:
         return data[0]
 
     def healthcheck_rest(self) -> dict[str, Any]:
-        return self._request("GET", "/rest/v1/", params={})
+        return self._request(
+            "GET",
+            "/rest/v1/",
+            headers={"Accept": "application/openapi+json"},
+            params={},
+        )
 
     def _request(
         self,

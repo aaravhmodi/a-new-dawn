@@ -3,9 +3,15 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from enum import Enum
+
 from pydantic import BaseModel, Field
 
-from a_new_dawn.models import PlayerClass
+
+class PlayerClass(str, Enum):
+    smuggler = "smuggler"
+    jedi = "jedi"
+    bounty_hunter = "bounty_hunter"
 
 
 class SignupRequest(BaseModel):

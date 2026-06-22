@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     supabase_db_url: str = ""
+    supabase_direct_url: str = ""
     supabase_url: str
     supabase_publishable_key: str = ""
     supabase_anon_key: str = ""

@@ -4,9 +4,8 @@ This repo now contains a working scaffold for a choice-driven CLI RPG with:
 
 - a FastAPI backend
 - a Typer CLI client
-- SQLAlchemy models mapped to the Supabase schema
 - an AI generation layer for campaign arcs, episode plans, and scene narration
-- persistence into Supabase Postgres
+- persistence through Supabase Auth + REST APIs
 - verified Supabase JWT auth in the FastAPI layer
 - seed catalogs for eras, classes, items, factions, and canon cameo rules
 
@@ -17,7 +16,8 @@ This repo now contains a working scaffold for a choice-driven CLI RPG with:
    - [20260621112500_initial_schema.sql](C:\Users\upsid\documents\projects\star wars\supabase\migrations\20260621112500_initial_schema.sql)
    - [20260621120500_seed_content.sql](C:\Users\upsid\documents\projects\star wars\supabase\migrations\20260621120500_seed_content.sql)
 3. Copy `.env.example` to `.env` and fill in your keys.
-   `SUPABASE_DB_URL` is still required and was left blank because it was not provided.
+   For runtime, you only need `SUPABASE_URL`, a publishable key, and a server-side secret/service-role key.
+   `SUPABASE_DB_URL` and `SUPABASE_DIRECT_URL` are optional and only useful if you want a separate migration toolchain.
 4. Install dependencies:
 
 ```bash
@@ -39,10 +39,10 @@ a-new-dawn new-campaign --player-class smuggler --era galactic_civil_war --plane
 
 ## Architecture
 
-- The backend writes game state to Supabase Postgres.
+- The backend writes game state through Supabase REST endpoints.
 - Supabase Auth creates `auth.users`; the trigger in the migration creates `public.profiles`.
 - The CLI stores a local session file with `user_id` and Supabase access token.
-- AI generation happens on the backend through the OpenAI API.
+- AI generation happens on the backend.
 - AI generation can also run through `modelrelay` or Ollama using the same OpenAI-compatible client shape.
 - AI generation can also run through native Ollama or Gemini HTTP endpoints with no OpenAI compatibility layer.
 - Episode plans are stored in `episode_plans.plan_json`.

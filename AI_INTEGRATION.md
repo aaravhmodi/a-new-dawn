@@ -23,6 +23,8 @@ The orchestration is in [src/a_new_dawn/engine.py](C:\Users\upsid\documents\proj
 
 ## Storage model
 
+The runtime path now uses Supabase REST, not a direct Postgres connection.
+
 ### Campaign creation
 
 When a new campaign is created:
@@ -58,6 +60,7 @@ Put these in `.env`:
 
 ```env
 SUPABASE_DB_URL=postgresql+psycopg://...
+SUPABASE_DIRECT_URL=postgresql+psycopg://...
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_ANON_KEY=...
@@ -91,7 +94,7 @@ The current prompts are intentionally compact. Improve them by:
 ### Campaign generation
 
 1. User creates campaign.
-2. Backend writes a pending campaign row.
+2. Backend writes a pending campaign row through Supabase REST.
 3. Backend generates arc and episode plans.
 4. Backend stores the plans.
 5. Backend marks episode 1 available.

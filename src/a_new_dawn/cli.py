@@ -10,16 +10,16 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from sqlalchemy import text
 
 from a_new_dawn.content import OPENING_LINE, TITLE_CARD
-from a_new_dawn.db import SessionLocal
 from a_new_dawn.settings import get_settings
+from a_new_dawn.supabase_store import SupabaseStore
 
 
 app = typer.Typer(help="STAR WARS: A NEW DAWN CLI")
 console = Console()
 settings = get_settings()
+store = SupabaseStore()
 
 
 def _session_file() -> Path:
@@ -93,11 +93,19 @@ def _check(name: str, ok: bool, detail: str) -> tuple[str, str, str]:
     return (name, "[green]ok[/green]" if ok else "[red]fail[/red]", detail)
 
 
+def _raise_with_detail(response: httpx.Response) -> None:
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        detail = response.text.strip() or str(exc)
+        raise typer.BadParameter(f"{response.status_code} response from backend: {detail}") from exc
+
+
 @app.command()
 def signup(email: str, password: str, handle: str) -> None:
     with _client() as client:
         response = client.post("/auth/signup", json={"email": email, "password": password, "handle": handle})
-        response.raise_for_status()
+        _raise_with_detail(response)
         data = response.json()
         _save_session(data)
     console.print(f"Signed up as {email}.")
@@ -107,7 +115,7 @@ def signup(email: str, password: str, handle: str) -> None:
 def login(email: str, password: str) -> None:
     with _client() as client:
         response = client.post("/auth/login", json={"email": email, "password": password})
-        response.raise_for_status()
+        _raise_with_detail(response)
         data = response.json()
         _save_session(data)
     console.print(f"Logged in as {email}.")
@@ -121,12 +129,12 @@ def new_campaign(player_class: str = "smuggler", era: str = "galactic_civil_war"
             json={"player_class": player_class, "era": era, "planet": planet},
             headers=_headers(),
         )
-        response.raise_for_status()
+        _raise_with_detail(response)
         campaign = response.json()
         _print_opening(campaign["story_arc"].get("opening_crawl", ""))
 
         scene_response = client.get(f"/campaigns/{campaign['campaign_id']}/current-scene", headers=_headers())
-        scene_response.raise_for_status()
+        _raise_with_detail(scene_response)
         scene = scene_response.json()
 
     session = _load_session()
@@ -144,7 +152,7 @@ def play() -> None:
 
     with _client() as client:
         scene_response = client.get(f"/campaigns/{campaign_id}/current-scene", headers=_headers())
-        scene_response.raise_for_status()
+        _raise_with_detail(scene_response)
         scene = scene_response.json()
 
         while scene:
@@ -159,7 +167,7 @@ def play() -> None:
                 json={"choice_key": selected["choice_key"]},
                 headers=_headers(),
             )
-            result_response.raise_for_status()
+            _raise_with_detail(result_response)
             result = result_response.json()
             console.print(Panel.fit(result["resolution_text"], border_style="green"))
             scene = result["next_scene"]
@@ -173,7 +181,6 @@ def doctor() -> None:
     cfg = settings
 
     results.append(_check("SUPABASE_URL", bool(cfg.supabase_url), cfg.supabase_url or "missing"))
-    results.append(_check("SUPABASE_DB_URL", bool(cfg.supabase_db_url), "set" if cfg.supabase_db_url else "missing"))
     results.append(
         _check(
             "SUPABASE_PUBLISHABLE_KEY",
@@ -181,14 +188,20 @@ def doctor() -> None:
             "set" if cfg.resolved_publishable_key else "missing",
         )
     )
+    results.append(
+        _check(
+            "SUPABASE_SERVER_KEY",
+            bool(cfg.resolved_server_key),
+            "set" if cfg.resolved_server_key else "missing",
+        )
+    )
     results.append(_check("LLM_PROVIDER", bool(cfg.llm_provider), cfg.llm_provider))
 
     try:
-        with SessionLocal() as db:
-            db.execute(text("select 1"))
-        results.append(_check("Database", True, "connection ok"))
+        store.healthcheck_rest()
+        results.append(_check("Supabase REST", True, "reachable"))
     except Exception as exc:
-        results.append(_check("Database", False, str(exc)))
+        results.append(_check("Supabase REST", False, str(exc)))
 
     try:
         response = httpx.get(cfg.resolved_supabase_jwks_url, timeout=15.0)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+import httpx
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException
 
@@ -34,27 +35,39 @@ def healthz() -> dict[str, str]:
 
 @app.post("/auth/signup", response_model=SessionResponse)
 def signup(request: SignupRequest) -> SessionResponse:
-    data = store.signup(email=request.email, password=request.password, handle=request.handle)
-    user = data["user"]
-    session = data.get("session") or {}
-    return SessionResponse(
-        user_id=user["id"],
-        access_token=session.get("access_token"),
-        refresh_token=session.get("refresh_token"),
-        email=user.get("email"),
-    )
+    try:
+        data = store.signup(email=request.email, password=request.password, handle=request.handle)
+        user = data["user"]
+        session = data.get("session") or {}
+        return SessionResponse(
+            user_id=user["id"],
+            access_token=session.get("access_token"),
+            refresh_token=session.get("refresh_token"),
+            email=user.get("email"),
+        )
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text or str(exc)
+        raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/auth/login", response_model=SessionResponse)
 def login(request: LoginRequest) -> SessionResponse:
-    data = store.login(email=request.email, password=request.password)
-    user = data["user"]
-    return SessionResponse(
-        user_id=user["id"],
-        access_token=data.get("access_token"),
-        refresh_token=data.get("refresh_token"),
-        email=user.get("email"),
-    )
+    try:
+        data = store.login(email=request.email, password=request.password)
+        user = data["user"]
+        return SessionResponse(
+            user_id=user["id"],
+            access_token=data.get("access_token"),
+            refresh_token=data.get("refresh_token"),
+            email=user.get("email"),
+        )
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text or str(exc)
+        raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 @app.post("/campaigns", response_model=CampaignSummary)
 def create_campaign(
     request: CampaignCreateRequest,
