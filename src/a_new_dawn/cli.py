@@ -10,8 +10,10 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from sqlalchemy import text
 
 from a_new_dawn.content import OPENING_LINE, TITLE_CARD
+from a_new_dawn.db import SessionLocal
 from a_new_dawn.settings import get_settings
 
 
@@ -87,6 +89,10 @@ def _render_scene(scene: dict[str, Any]) -> None:
     console.print(choices)
 
 
+def _check(name: str, ok: bool, detail: str) -> tuple[str, str, str]:
+    return (name, "[green]ok[/green]" if ok else "[red]fail[/red]", detail)
+
+
 @app.command()
 def signup(email: str, password: str, handle: str) -> None:
     with _client() as client:
@@ -159,3 +165,72 @@ def play() -> None:
             scene = result["next_scene"]
 
     console.print("[bold green]Campaign segment complete.[/bold green]")
+
+
+@app.command()
+def doctor() -> None:
+    results: list[tuple[str, str, str]] = []
+    cfg = settings
+
+    results.append(_check("SUPABASE_URL", bool(cfg.supabase_url), cfg.supabase_url or "missing"))
+    results.append(_check("SUPABASE_DB_URL", bool(cfg.supabase_db_url), "set" if cfg.supabase_db_url else "missing"))
+    results.append(
+        _check(
+            "SUPABASE_PUBLISHABLE_KEY",
+            bool(cfg.resolved_publishable_key),
+            "set" if cfg.resolved_publishable_key else "missing",
+        )
+    )
+    results.append(_check("LLM_PROVIDER", bool(cfg.llm_provider), cfg.llm_provider))
+
+    try:
+        with SessionLocal() as db:
+            db.execute(text("select 1"))
+        results.append(_check("Database", True, "connection ok"))
+    except Exception as exc:
+        results.append(_check("Database", False, str(exc)))
+
+    try:
+        response = httpx.get(cfg.resolved_supabase_jwks_url, timeout=15.0)
+        response.raise_for_status()
+        keys = response.json().get("keys", [])
+        results.append(_check("Supabase JWKS", True, f"{len(keys)} keys"))
+    except Exception as exc:
+        results.append(_check("Supabase JWKS", False, str(exc)))
+
+    provider = cfg.llm_provider.lower()
+    try:
+        if provider == "gemini":
+            response = httpx.post(
+                f"{cfg.gemini_base_url}/models/{cfg.gemini_model}:generateContent",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-goog-api-key": cfg.gemini_api_key or "",
+                },
+                json={"contents": [{"parts": [{"text": "Reply with the single word OK."}]}]},
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            results.append(_check("Gemini", True, cfg.gemini_model))
+        elif provider == "ollama":
+            response = httpx.get(f"{cfg.ollama_base_url[:-4]}/api/tags" if cfg.ollama_base_url.endswith("/api") else f"{cfg.ollama_base_url}/tags", timeout=15.0)
+            response.raise_for_status()
+            results.append(_check("Ollama", True, cfg.ollama_model))
+        elif provider == "modelrelay":
+            response = httpx.get(f"{cfg.modelrelay_base_url}/models", timeout=15.0)
+            response.raise_for_status()
+            results.append(_check("ModelRelay", True, cfg.modelrelay_model))
+        else:
+            if not cfg.openai_api_key:
+                raise ValueError("OPENAI_API_KEY missing")
+            results.append(_check("OpenAI", True, cfg.openai_model))
+    except Exception as exc:
+        results.append(_check(provider.title(), False, str(exc)))
+
+    table = Table(title="A New Dawn Doctor")
+    table.add_column("Check")
+    table.add_column("Status")
+    table.add_column("Detail")
+    for row in results:
+        table.add_row(*row)
+    console.print(table)

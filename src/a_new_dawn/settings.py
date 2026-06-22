@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_model: str = "auto-fastest"
     openai_base_url: str | None = None
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-flash-latest"
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     modelrelay_base_url: str = "http://127.0.0.1:7352/v1"
     modelrelay_api_key: str = "dummy-key"
     modelrelay_model: str = "auto-fastest"
@@ -53,6 +56,8 @@ class Settings(BaseSettings):
             return self.modelrelay_base_url
         if provider == "ollama":
             return self.ollama_base_url
+        if provider == "gemini":
+            return self.gemini_base_url
         return self.openai_base_url
 
     @property
@@ -62,6 +67,8 @@ class Settings(BaseSettings):
             return self.modelrelay_api_key
         if provider == "ollama":
             return "ollama"
+        if provider == "gemini":
+            return self.gemini_api_key
         return self.openai_api_key
 
     @property
@@ -71,6 +78,8 @@ class Settings(BaseSettings):
             return self.modelrelay_model
         if provider == "ollama":
             return self.ollama_model
+        if provider == "gemini":
+            return self.gemini_model
         return self.openai_model
 
 

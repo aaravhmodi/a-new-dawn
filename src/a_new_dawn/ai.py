@@ -77,8 +77,10 @@ class AIService:
         self.model = settings.llm_model
         api_key = settings.llm_api_key
         base_url = settings.llm_base_url
-        self.client = None if self.provider == "ollama" else (OpenAI(api_key=api_key, base_url=base_url) if api_key else None)
+        self.client = None if self.provider in {"ollama", "gemini"} else (OpenAI(api_key=api_key, base_url=base_url) if api_key else None)
         self.ollama_base_url = settings.ollama_base_url
+        self.gemini_base_url = settings.gemini_base_url
+        self.gemini_api_key = settings.gemini_api_key
 
     def generate_campaign_arc(self, *, player_class: str, era: str, planet: str, seed: int) -> dict[str, Any]:
         prompt = f"""
@@ -165,6 +167,14 @@ Choice: {choice_label}
 Outcome: {outcome}
 """
             return self._ollama_text_response(prompt) or outcome
+        if self.provider == "gemini":
+            prompt = f"""
+Write one short cinematic paragraph for a Star Wars game resolution.
+Scene: {scene_title}
+Choice: {choice_label}
+Outcome: {outcome}
+"""
+            return self._gemini_text_response(prompt) or outcome
 
         if not self.client:
             return outcome
@@ -183,6 +193,21 @@ Outcome: {outcome}
             last_error: Exception | None = None
             for _ in range(3):
                 text = self._ollama_text_response(
+                    prompt + f"\nReturn valid JSON only. Use this schema shape: {json.dumps(model_type.model_json_schema())}"
+                )
+                if not text:
+                    continue
+                try:
+                    return model_type.model_validate(json.loads(text))
+                except (json.JSONDecodeError, ValidationError) as exc:
+                    last_error = exc
+                    continue
+            return fallback
+
+        if self.provider == "gemini":
+            last_error: Exception | None = None
+            for _ in range(3):
+                text = self._gemini_text_response(
                     prompt + f"\nReturn valid JSON only. Use this schema shape: {json.dumps(model_type.model_json_schema())}"
                 )
                 if not text:
@@ -227,6 +252,37 @@ Outcome: {outcome}
         response.raise_for_status()
         data = response.json()
         return (data.get("response") or "").strip()
+
+    def _gemini_text_response(self, prompt: str) -> str:
+        if not self.gemini_api_key:
+            return ""
+        response = httpx.post(
+            f"{self.gemini_base_url}/models/{self.model}:generateContent",
+            headers={
+                "Content-Type": "application/json",
+                "X-goog-api-key": self.gemini_api_key,
+            },
+            json={
+                "contents": [
+                    {
+                        "parts": [
+                            {
+                                "text": prompt,
+                            }
+                        ]
+                    }
+                ]
+            },
+            timeout=120.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        candidates = data.get("candidates", [])
+        if not candidates:
+            return ""
+        parts = candidates[0].get("content", {}).get("parts", [])
+        text_parts = [part.get("text", "") for part in parts if part.get("text")]
+        return "\n".join(text_parts).strip()
 
     def _fallback_episode_plan(self, campaign_arc: dict[str, Any], episode_number: int, player_class: str) -> dict[str, Any]:
         prefix = f"ep{episode_number}"

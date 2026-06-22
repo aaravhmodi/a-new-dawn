@@ -71,6 +71,9 @@ MODELRELAY_API_KEY=dummy-key
 MODELRELAY_MODEL=auto-fastest
 OLLAMA_BASE_URL=http://localhost:11434/api
 OLLAMA_MODEL=gemma3:latest
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-flash-latest
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 ```
 
 ## How to make the AI better
