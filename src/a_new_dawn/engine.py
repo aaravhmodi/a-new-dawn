@@ -169,6 +169,23 @@ class GameEngine:
                 choice_key=choice_key,
             )
 
+        forced_ending_key = scene.get("forced_ending_key")
+        if forced_ending_key:
+            ending = self._ending_from_key(forced_ending_key)
+            self._finalize_campaign(
+                campaign=campaign,
+                campaign_id=campaign_id,
+                episode=episode,
+                ending=ending,
+            )
+            return ChoiceResult(
+                resolution_text=ending["ending_summary"],
+                next_scene=None,
+                ending_key=ending["ending_key"],
+                ending_title=ending["ending_title"],
+                ending_summary=ending["ending_summary"],
+            )
+
         choice = next((item for item in scene["choices"] if item["choice_key"] == choice_key), None)
         if choice is None:
             raise ValueError(f"Choice '{choice_key}' is not valid for scene '{scene['scene_key']}'.")
@@ -328,7 +345,11 @@ class GameEngine:
                     "llm_metadata": {"set_piece": True},
                 },
             )
-            next_scene_key = scene["set_piece"]["next_scene_key"]
+            bad_outcome_key = scene["set_piece"].get("bad_outcome_scene_key")
+            if bad_outcome_key and (action_state.get("cover", 0) <= 0 or action_state.get("heat", 0) >= 5):
+                next_scene_key = bad_outcome_key
+            else:
+                next_scene_key = scene["set_piece"]["next_scene_key"]
             if not self._scene_key_exists(episode["plan_json"], next_scene_key):
                 raise ValueError(
                     f"Set piece on scene '{scene['scene_key']}' points to missing scene '{next_scene_key}'."
@@ -364,75 +385,93 @@ class GameEngine:
         state: dict,
         final_choice: dict,
     ) -> dict[str, str]:
+        # Check story_flags for an ending_ flag set by the final choice
+        campaign_id = UUID(campaign["id"])
+        flags = self.store.select(
+            "story_flags",
+            filters={"campaign_id": campaign_id},
+        )
+        for flag in flags or []:
+            flag_key = flag.get("flag_key", "")
+            if flag_key.startswith("ending_"):
+                ending_key = flag_key[len("ending_"):]
+                return self._ending_from_key(ending_key)
+
+        # Fallback: derive from final choice key and dominant path (legacy behaviour)
         final_choice_key = final_choice["choice_key"]
         dominant_path = self._dominant_path(state)
-        archive_state = campaign.get("story_arc", {}).get("episode_state", {}).get("archive_lockdown", {})
-        archive_heat = int(archive_state.get("heat", 0))
-        archive_cover = int(archive_state.get("cover", 0))
-        archive_intel = int(archive_state.get("intel", 0))
-
-        if state["health"] <= 0 or archive_heat >= 5 or archive_cover <= 0:
-            return {
-                "ending_key": "burned_cover",
-                "ending_title": "Burned Cover",
-                "ending_summary": "Rylos survives, but the mission burns through every layer of protection. He disappears into the storm as a wanted ghost, hunted by every side that now knows his name.",
-            }
 
         if dominant_path == "light":
-            if final_choice_key == "report_keeper":
-                return {
-                    "ending_key": "dawn_agent",
-                    "ending_title": "The Dawn Agent",
-                    "ending_summary": "Rylos turns the evidence over to Watcher Nine and becomes the kind of agent the Empire never intended to create: a quiet protector working from inside the machine.",
-                }
-            if final_choice_key == "keep_blackmail_copy":
-                return {
-                    "ending_key": "gentle_renegade",
-                    "ending_title": "The Gentle Renegade",
-                    "ending_summary": "Rylos keeps one clean copy for himself and walks away with a conscience intact. He is now useful to the Empire, but no longer owned by it.",
-                }
-            return {
-                "ending_key": "bright_exile",
-                "ending_title": "The Bright Exile",
-                "ending_summary": "Rylos burns the files, rejects the mission's leverage, and vanishes into the unknown as a Force-sensitive exile who refuses to be turned into a weapon.",
-            }
-
+            if final_choice_key == "accept_deeper_mission":
+                return self._ending_from_key("emperors_blade")
+            if final_choice_key == "refuse_request_extraction":
+                return self._ending_from_key("quiet_defector")
         if dominant_path == "dark":
-            if final_choice_key == "report_keeper":
-                return {
-                    "ending_key": "vader_asset",
-                    "ending_title": "Vader's Asset",
-                    "ending_summary": "The report reaches the top of the chain, and Rylos becomes a promising blade in a darker game. He gains rank, fear, and the attention of powers that do not forgive mistakes.",
-                }
-            if final_choice_key == "keep_blackmail_copy":
-                return {
-                    "ending_key": "blackmail_kingpin",
-                    "ending_title": "Blackmail Kingpin",
-                    "ending_summary": "Rylos keeps the leverage, cuts a private path through the underworld, and becomes the one everyone else pays to avoid. He wins the shadows, but loses the daylight.",
-                }
-            return {
-                "ending_key": "shrouded_executor",
-                "ending_title": "The Shrouded Executor",
-                "ending_summary": "Rylos destroys the files and embraces precision over loyalty. He leaves no trace except fear and a growing list of names that should have stayed hidden.",
-            }
+            if final_choice_key == "pretend_join_double_agent":
+                return self._ending_from_key("the_infiltrator")
+        return self._ending_from_key("silent_wanderer")
 
-        if final_choice_key == "report_keeper":
-            return {
-                "ending_key": "free_agent",
-                "ending_title": "The Free Agent",
-                "ending_summary": "Rylos reports the truth, but not all of it. He earns trust from Watcher Nine while keeping enough distance to stay his own man.",
-            }
-        if final_choice_key == "keep_blackmail_copy":
-            return {
+    def _ending_from_key(self, ending_key: str) -> dict[str, str]:
+        endings: dict[str, dict[str, str]] = {
+            "burned_cover": {
+                "ending_key": "burned_cover",
+                "ending_title": "Burned",
+                "ending_summary": "Rylos escapes barely alive but his identity is gone. Warden Karn has his real name. Every faction now knows a Force-sensitive ghost walked through the annex. He runs.",
+            },
+            "emperors_blade": {
+                "ending_key": "emperors_blade",
+                "ending_title": "The Emperor's Blade",
+                "ending_summary": "The Empire gives Rylos rank, resources, and a leash. Vader knows he exists. Command calls it an asset. Rylos calls it a cage with better lighting.",
+            },
+            "quiet_defector": {
+                "ending_key": "quiet_defector",
+                "ending_title": "The Quiet Defector",
+                "ending_summary": "Rylos takes the extraction, burns his handler file, and surfaces three weeks later on a backwater moon with a new name. The Force stays quiet — for now.",
+            },
+            "ghost_who_knew": {
+                "ending_key": "ghost_who_knew",
+                "ending_title": "The Ghost Who Knew",
+                "ending_summary": "Watcher Nine's trust becomes the key that unlocks the door out. Rylos vanishes from Imperial records while holding information that could destroy careers. A shadow with a conscience.",
+            },
+            "paid_instrument": {
+                "ending_key": "paid_instrument",
+                "ending_title": "The Paid Instrument",
+                "ending_summary": "The Empire pays well for confirmed intelligence. Rylos becomes a line item in a classified budget. He is useful, compensated, and never quite free.",
+            },
+            "the_believer": {
+                "ending_key": "the_believer",
+                "ending_title": "The Believer",
+                "ending_summary": "Directorate Null's ideology is not without logic. Rylos sells them the files and stays to hear the argument. He does not fully agree. He is not sure he disagrees.",
+            },
+            "ghost_broker": {
                 "ending_key": "ghost_broker",
-                "ending_title": "Ghost Broker",
-                "ending_summary": "Rylos holds the evidence close and starts trading in secrets. He becomes a silent broker between factions, never fully seen and never fully safe.",
-            }
-        return {
-            "ending_key": "silent_wanderer",
-            "ending_title": "The Silent Wanderer",
-            "ending_summary": "Rylos burns the files and disappears into the margins. He is alive, unclaimed, and harder to find than any of the people hunting him.",
+                "ending_title": "The Ghost Broker",
+                "ending_summary": "The files burn. The credits from the pre-sale do not. Rylos becomes a name passed in whispers — someone who knows things and cannot be found. The Force hums quietly in his chest like a secret he hasn't told anyone.",
+            },
+            "the_convert": {
+                "ending_key": "the_convert",
+                "ending_title": "The Convert",
+                "ending_summary": "Directorate Null welcomes him. Their cause is cold and rational and possibly right. Rylos trades one uniform for another — this one has no insignia.",
+            },
+            "the_infiltrator": {
+                "ending_key": "the_infiltrator",
+                "ending_title": "The Infiltrator",
+                "ending_summary": "He says yes. He means no. The deep game begins, and Rylos is now running an operation inside an operation, Force-sensitive and pretending not to be, trusted by people he intends to destroy.",
+            },
+            "silent_wanderer": {
+                "ending_key": "silent_wanderer",
+                "ending_title": "The Silent Wanderer",
+                "ending_summary": "No masters. No network. No name. The Force woke up in him and he walked away from everyone who would use it. Somewhere in the galaxy's margins, Rylos Cesti does not exist — and that is exactly the point.",
+            },
         }
+        return endings.get(
+            ending_key,
+            {
+                "ending_key": ending_key,
+                "ending_title": ending_key.replace("_", " ").title(),
+                "ending_summary": "The mission ends. Rylos disappears.",
+            },
+        )
 
     def _dominant_path(self, state: dict) -> str:
         light_score = int(state.get("light_score", 0))
@@ -536,8 +575,11 @@ class GameEngine:
             if "_archive_lockdown" in scene.get("scene_key", "") and not scene.get("set_piece"):
                 rival = plan.get("rival", "Warden Karn")
                 next_key = scene["scene_key"].replace("_archive_lockdown", "_intercept")
+                escape_key = scene["scene_key"].replace("_archive_lockdown", "_escape_fallout")
+                burned_key = scene["scene_key"].replace("_archive_lockdown", "_burned_cover")
                 scene["set_piece"] = {
-                    "next_scene_key": next_key,
+                    "next_scene_key": escape_key,
+                    "bad_outcome_scene_key": burned_key,
                     "beats": [
                         {
                             "title": "Beat 1: Entry",

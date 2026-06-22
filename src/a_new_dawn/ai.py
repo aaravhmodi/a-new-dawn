@@ -55,6 +55,7 @@ class EpisodeSceneModel(BaseModel):
     title: str
     prompt: str
     choices: list[EpisodeChoiceModel]
+    set_piece: dict | None = None
 
 
 class EpisodePlanModel(BaseModel):
@@ -160,25 +161,8 @@ Rules:
         return self._validated_json_response(prompt, EpisodePlanModel, fallback).model_dump()
 
     def narrate_scene(self, *, opening_crawl: str, campaign_arc: dict[str, Any], scene: dict[str, Any], stats: dict[str, Any]) -> dict[str, str]:
-        prompt = f"""
-Write compact cinematic text for a Star Wars CLI RPG scene.
-Return strict JSON with keys:
-title, narration.
-
-Campaign arc:
-{json.dumps(campaign_arc)}
-
-Opening crawl:
-{opening_crawl}
-
-Scene:
-{json.dumps(scene)}
-
-Player stats:
-{json.dumps(stats)}
-"""
-        fallback = SceneNarrationModel(title=scene["title"], narration=scene["prompt"])
-        return self._validated_json_response(prompt, SceneNarrationModel, fallback).model_dump()
+        # All deterministic scenes have a pre-written prompt — use it directly, no AI call needed.
+        return {"title": scene["title"], "narration": scene["prompt"]}
 
     def narrate_resolution(self, *, scene_title: str, choice_label: str, outcome: str) -> str:
         if self.provider == "ollama":
@@ -357,31 +341,93 @@ Outcome: {outcome}
                 {
                     "scene_key": f"{prefix}_cantina_contact",
                     "title": "The Broken Cantina",
-                    "prompt": f"In a cantina beneath the capital's industrial spires, Rylos Cesti's first contact waits at a cracked sabacc table. Somewhere in the crowd, {second_ally} is watching for signs that his cover is already blown.",
+                    "prompt": f"In a cantina beneath the capital's industrial spires, Rylos Cesti's first contact waits at a cracked sabacc table. Somewhere in the crowd, {second_ally} is watching for signs that his cover is already blown. The cantina smells of cheap spice and Imperial fear.",
                     "choices": [
                         {
                             "choice_key": "trade_codes",
                             "label": "Trade for encryption codes",
                             "description": "Exchange credits and favors for network access.",
-                            "outcome": "A code cylinder changes hands, along with a whisper about a hidden directorate shaping recent attacks.",
-                            "next_scene_key": f"{prefix}_archive_lockdown",
+                            "outcome": "A code cylinder changes hands under the table. The contact leans close: someone inside the intelligence annex has been feeding data out for months.",
+                            "next_scene_key": f"{prefix}_karn_pressure",
                             "effects": {"credits_delta": -15, "add_items": [{"item_key": "imperial_code_cylinder", "item_name": "Imperial Code Cylinder"}]},
                         },
                         {
                             "choice_key": "bait_informant",
                             "label": "Bait the local informant",
                             "description": "Force the contact to reveal who else is listening.",
-                            "outcome": "The informant cracks and names a surveillance team tied to a secret anti-Force network.",
-                            "next_scene_key": f"{prefix}_archive_lockdown",
+                            "outcome": "The informant cracks under pressure and names a watcher at the bar. The leak runs deeper than expected — someone is tracking operatives on both sides.",
+                            "next_scene_key": f"{prefix}_karn_pressure",
                             "effects": {"dark_delta": 1, "set_flags": ["informant_broken"]},
                         },
                         {
                             "choice_key": "meet_observer",
                             "label": f"Signal {second_ally}",
                             "description": "Use a dead-drop phrase to reveal your watcher in the room.",
-                            "outcome": f"{second_ally} slides into the booth and confirms a theft in the intelligence archives.",
-                            "next_scene_key": f"{prefix}_archive_lockdown",
+                            "outcome": f"{second_ally} slides into the booth and confirms that the intelligence annex records were accessed twice last week by someone who does not officially exist.",
+                            "next_scene_key": f"{prefix}_karn_pressure",
                             "effects": {"relationship_deltas": {"veska_tal": 4}, "set_flags": ["watcher_contacted"]},
+                        },
+                    ],
+                },
+                {
+                    "scene_key": f"{prefix}_karn_pressure",
+                    "title": "Warden Karn",
+                    "prompt": f"{rival} — the capital's senior security warden, a man who has never lost a target he decided to hunt — arrives in the cantina district with a sweep team. He does not know Rylos by name yet, but he is watching the room. His instincts are already pointing in the right direction.",
+                    "choices": [
+                        {
+                            "choice_key": "blend_crowd",
+                            "label": "Disappear into the crowd",
+                            "description": "Stay calm and let the sweep pass over you.",
+                            "outcome": f"Rylos nurses his drink and mirrors the locals. {rival}'s eyes move across the room and slide past without catching.",
+                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "effects": {"light_delta": 1, "set_flags": ["karn_unsuspicious"]},
+                        },
+                        {
+                            "choice_key": "feed_false_tip",
+                            "label": f"Feed {rival} a false lead",
+                            "description": "Point the warden toward a different target to buy time.",
+                            "outcome": f"A whispered tip sends {rival}'s team toward the wrong exit. Rylos earns breathing room but leaves a trail of deception behind him.",
+                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "effects": {"dark_delta": 1, "independent_delta": 1, "set_flags": ["karn_misdirected"]},
+                        },
+                        {
+                            "choice_key": "contact_veska",
+                            "label": f"Signal {second_ally} for a diversion",
+                            "description": "Use your field partner to pull Karn's attention away.",
+                            "outcome": f"{second_ally} triggers a minor disturbance two blocks over. {rival} moves to investigate, and Rylos slips out clean.",
+                            "next_scene_key": f"{prefix}_directorate_reveal",
+                            "effects": {"relationship_deltas": {"veska_tal": 2}, "set_flags": ["karn_diverted"]},
+                        },
+                    ],
+                },
+                {
+                    "scene_key": f"{prefix}_directorate_reveal",
+                    "title": "Directorate Null",
+                    "prompt": f"Rylos and {second_ally} regroup in a maintenance alcove while the sweep moves on. The contact's information and the archive access logs point to something larger than a simple data theft. There is a name at the centre of it: Directorate Null. Not a person. A philosophy. A network built on the belief that the galaxy's endless wars exist because Force users — Sith lords and Jedi knights alike — will always drag ordinary people into their conflicts.",
+                    "choices": [
+                        {
+                            "choice_key": "report_immediately",
+                            "label": f"Report the name to {ally} immediately",
+                            "description": "Pass the intelligence up the chain before acting on it.",
+                            "outcome": f"{ally}'s voice comes back steady and cold: proceed to the annex. Recover the archive fragment. The Empire wants the codex before Directorate Null can use it.",
+                            "next_scene_key": f"{prefix}_archive_lockdown",
+                            "effects": {"relationship_deltas": {"watcher_nine": 3}, "light_delta": 1},
+                        },
+                        {
+                            "choice_key": "hold_the_name",
+                            "label": "Hold the name back and investigate first",
+                            "description": "Keep Directorate Null to yourself until you understand what they actually want.",
+                            "outcome": "Rylos files a partial report and keeps the critical detail. If this network is ideological rather than criminal, the Empire may not be the right entity to hand it to.",
+                            "next_scene_key": f"{prefix}_archive_lockdown",
+                            "effects": {"independent_delta": 2, "set_flags": ["withheld_directorate_name"]},
+                        },
+                        {
+                            "choice_key": "ask_veska_opinion",
+                            "label": f"Ask {second_ally} what she thinks of them",
+                            "description": "Trust your field partner's read before deciding who to tell.",
+                            "outcome": f"{second_ally} is quiet for a long moment. 'They're not wrong about the Sith,' she says finally. 'That doesn't mean they're right about everything else.'",
+                            "next_scene_key": f"{prefix}_archive_lockdown",
+                            "effects": {"relationship_deltas": {"veska_tal": 3}, "set_flags": ["veska_questioned_null"]},
                         },
                     ],
                 },
@@ -390,7 +436,8 @@ Outcome: {outcome}
                     "title": "Archive Lockdown",
                     "prompt": f"The intelligence annex sits beneath layered security fields. Inside is a fragment of the {campaign_arc['central_objective_name']}, and outside, {rival} has begun to suspect a mole. Rylos feels a strange pressure behind his eyes as he approaches the vault. A rumor on the security channel says a hired bounty hunter, Boba Fett, may already be in the building.",
                     "set_piece": {
-                        "next_scene_key": f"{prefix}_intercept",
+                        "next_scene_key": f"{prefix}_escape_fallout",
+                        "bad_outcome_scene_key": f"{prefix}_burned_cover",
                         "beats": [
                             {
                                 "title": "Beat 1: Entry",
@@ -478,16 +525,47 @@ Outcome: {outcome}
                     "choices": [],
                 },
                 {
+                    "scene_key": f"{prefix}_escape_fallout",
+                    "title": "After the Annex",
+                    "prompt": f"Rylos reaches a safe alcove two levels below the district surface. Rain hammers the grates above. His hands are steady but his mind is not. The archive data is secured, but the escape left marks. {second_ally} arrives through a side passage, and {ally}'s voice crackles in his ear demanding a status report. For a moment Rylos noticed something strange during the escape — objects that moved without reason, a pressure behind his eyes that wasn't fear. He pushes it aside. He has a report to make and a decision that will define what kind of operative he is.",
+                    "choices": [
+                        {
+                            "choice_key": "full_debrief",
+                            "label": f"Give {ally} a full debrief",
+                            "description": "Report everything you found and let command decide what comes next.",
+                            "outcome": f"{ally} processes the information without warmth. 'You have confirmed a network we suspected existed. Stay in position. The hunt continues.' Rylos feels the weight of being a tool that has just proven its usefulness.",
+                            "next_scene_key": f"{prefix}_intercept",
+                            "effects": {"relationship_deltas": {"watcher_nine": 4}, "light_delta": 1},
+                        },
+                        {
+                            "choice_key": "partial_debrief",
+                            "label": "Hold the most dangerous parts back",
+                            "description": "Give enough to satisfy command but keep leverage for yourself.",
+                            "outcome": "The partial report satisfies protocol. What Rylos keeps — the deepest file cluster and the name of the network's contact — remains his alone. In this game, insurance is survival.",
+                            "next_scene_key": f"{prefix}_intercept",
+                            "effects": {"independent_delta": 2, "set_flags": ["held_leverage"]},
+                        },
+                        {
+                            "choice_key": "trust_veska",
+                            "label": f"Debrief {second_ally} instead of {ally}",
+                            "description": "Trust your field partner with the truth before command gets a filtered version.",
+                            "outcome": f"{second_ally} listens without judgment. 'There are things in those files that will get people killed if the wrong hands read them first,' she says. 'We decide who those hands are.' A partnership forms in the rain.",
+                            "next_scene_key": f"{prefix}_intercept",
+                            "effects": {"relationship_deltas": {"veska_tal": 5}, "independent_delta": 1, "set_flags": ["veska_trusted_first"]},
+                        },
+                    ],
+                },
+                {
                     "scene_key": f"{prefix}_intercept",
                     "title": "The Silent Broadcast",
-                    "prompt": "A pirate signal cuts through every secure channel in the district. A masked voice claims the age of Jedi and Sith is ending, and Rylos's stolen files prove this is only the opening move. Then the room shudders, metal groans, and something impossible answers his fear. In a secure Imperial relay, Darth Vader listens in silence as the report reaches him.",
+                    "prompt": f"Every secure channel in the district cuts to static, then a single pirate signal bleeds through. A masked voice, calm and measured, addresses not the Empire, not the Republic — but the galaxy itself. It claims the age of Jedi and Sith is a centuries-long catastrophe. It claims proof exists. It claims the proof is already in the wrong hands. Rylos knows the files in his pocket are exactly what the voice is describing. Then something happens that has no tactical explanation. The room around him goes quiet in a way that has nothing to do with sound. A loose hydrospanner lifts off the floor. A cracked viewport seals shut. Metal groans toward him like it recognizes him. In a secured Imperial relay somewhere beyond the stars, Darth Vader — the Emperor's enforcer, a man who was once a Jedi and chose a darker power — sits very still and listens to his analysts report a disturbance in the Force.",
                     "choices": [
                         {
                             "choice_key": "report_keeper",
                             "label": f"Transmit everything to {ally}",
                             "description": "Hand the evidence to your handler and request extraction.",
                             "outcome": "The files go out over a secure burst just as loose equipment lifts and slams aside without Rylos touching it. Somewhere far away, Vader now knows a hidden asset is awakening, and command orders Rylos deeper into the hunt.",
-                            "next_scene_key": "END",
+                            "next_scene_key": f"{prefix}_final_command",
                             "effects": {"relationship_deltas": {"watcher_nine": 3}, "light_delta": 1, "set_flags": [f"episode_{episode_number}_cleared", "swore_to_the_mission", "force_sensitive_awakened"]},
                         },
                         {
@@ -495,7 +573,7 @@ Outcome: {outcome}
                             "label": "Keep a private copy of the files",
                             "description": "Hold leverage back from your own command structure.",
                             "outcome": "Rylos sends a partial report and hides the rest, then instinctively reaches for a falling data core and stops it in midair. Vader's interest in the disturbance makes the galaxy feel smaller and far more dangerous.",
-                            "next_scene_key": "END",
+                            "next_scene_key": f"{prefix}_final_leverage",
                             "effects": {"independent_delta": 3, "dark_delta": 1, "set_flags": [f"episode_{episode_number}_cleared", "kept_blackmail_copy", "force_sensitive_awakened"]},
                         },
                         {
@@ -503,10 +581,110 @@ Outcome: {outcome}
                             "label": "Burn the files and vanish",
                             "description": "Deny every faction the weaponized knowledge you just found.",
                             "outcome": "The data turns to ash, but when blaster fire tears through the archive, Rylos throws out a hand and the bolt deflects off a bent durasteel panel. Darth Vader receives only a partial signal, but it is enough to know the hunt has begun.",
-                            "next_scene_key": "END",
+                            "next_scene_key": f"{prefix}_final_null_contact",
                             "effects": {"light_delta": 2, "set_flags": [f"episode_{episode_number}_cleared", "burned_first_fragment", "force_sensitive_awakened"]},
                         },
                     ],
+                },
+                {
+                    "scene_key": f"{prefix}_final_command",
+                    "title": "Watcher's Orders",
+                    "prompt": f"Watcher Nine's voice arrives without preamble. The files have been reviewed. Vader's analysts flagged the Force disturbance within the hour. This is no longer a reconnaissance assignment — the Empire wants Rylos for something deeper, and {ally} has been authorized to offer it. The mission just became a recruitment.",
+                    "choices": [
+                        {
+                            "choice_key": "accept_deeper_mission",
+                            "label": "Accept the Empire's deeper mission",
+                            "description": "Step into the role the Empire is offering and see how far it goes.",
+                            "outcome": f"Rylos agrees. {ally}'s voice carries something that might almost be satisfaction. The Empire gives rank, resources, and a leash. Vader knows he exists now. Command calls it an asset. Rylos calls it a cage with better lighting.",
+                            "next_scene_key": "END",
+                            "effects": {"relationship_deltas": {"watcher_nine": 4}, "set_flags": ["ending_emperors_blade"]},
+                        },
+                        {
+                            "choice_key": "refuse_request_extraction",
+                            "label": "Refuse the mission and request extraction",
+                            "description": "Walk away from the Empire's offer and disappear clean.",
+                            "outcome": f"Rylos declines. {ally} goes silent for three seconds — a long time on a secure channel. Extraction is arranged. Rylos surfaces three weeks later on a backwater moon with a new name. The Force stays quiet — for now.",
+                            "next_scene_key": "END",
+                            "effects": {"light_delta": 1, "independent_delta": 1, "set_flags": ["ending_quiet_defector"]},
+                        },
+                        {
+                            "choice_key": "use_trust_to_disappear",
+                            "label": f"Use {ally}'s trust to quietly disappear",
+                            "description": "Exploit the handler relationship as cover to vanish from Imperial records entirely.",
+                            "outcome": f"Rylos says yes on the channel and is gone before the extraction team arrives. {ally}'s trust becomes the key that unlocks the door out. He vanishes from Imperial records while holding information that could destroy careers. A shadow with a conscience.",
+                            "next_scene_key": "END",
+                            "effects": {"independent_delta": 2, "set_flags": ["ending_ghost_who_knew"]},
+                        },
+                    ],
+                },
+                {
+                    "scene_key": f"{prefix}_final_leverage",
+                    "title": "The Market",
+                    "prompt": "Three coded messages arrive within the hour of the private copy being secured. The Empire has triangulated a signal anomaly and wants to buy back the files quietly. Directorate Null sends a single encrypted phrase that means they already know what Rylos is holding. A third message has no sender ID at all — only a credit offer that makes both the others look modest. The market is open.",
+                    "choices": [
+                        {
+                            "choice_key": "sell_to_empire",
+                            "label": "Sell to the Empire",
+                            "description": "Take the Imperial offer and close the transaction through official channels.",
+                            "outcome": "The Empire pays well for confirmed intelligence. Rylos becomes a line item in a classified budget. He is useful, compensated, and never quite free.",
+                            "next_scene_key": "END",
+                            "effects": {"credits_delta": 50, "set_flags": ["ending_paid_instrument"]},
+                        },
+                        {
+                            "choice_key": "sell_to_null",
+                            "label": "Sell to Directorate Null",
+                            "description": "Accept Directorate Null's offer and hear their argument.",
+                            "outcome": "Directorate Null's ideology is not without logic. Rylos sells them the files and stays to hear the argument. He does not fully agree. He is not sure he disagrees.",
+                            "next_scene_key": "END",
+                            "effects": {"independent_delta": 2, "set_flags": ["ending_the_believer"]},
+                        },
+                        {
+                            "choice_key": "destroy_and_disappear",
+                            "label": "Destroy the files and disappear anyway",
+                            "description": "Take the pre-sale credits already transferred and burn the evidence before any delivery.",
+                            "outcome": "The files burn. The credits from the pre-sale do not. Rylos becomes a name passed in whispers — someone who knows things and cannot be found. The Force hums quietly in his chest like a secret he hasn't told anyone.",
+                            "next_scene_key": "END",
+                            "effects": {"credits_delta": 30, "light_delta": 1, "independent_delta": 1, "set_flags": ["ending_ghost_broker"]},
+                        },
+                    ],
+                },
+                {
+                    "scene_key": f"{prefix}_final_null_contact",
+                    "title": "The Null Contact",
+                    "prompt": "Directorate Null reaches out within minutes of the files burning. They know exactly what Rylos did. Their message is brief: they respect it. A face-to-face contact is offered — not a threat, not a recruitment pitch, but a conversation the Empire would never allow. They offer a choice the Empire never would: the truth about what the files contained, and what it means.",
+                    "choices": [
+                        {
+                            "choice_key": "join_null_openly",
+                            "label": "Join Directorate Null openly",
+                            "description": "Accept their offer and step across the line into their network.",
+                            "outcome": "Directorate Null welcomes him. Their cause is cold and rational and possibly right. Rylos trades one uniform for another — this one has no insignia.",
+                            "next_scene_key": "END",
+                            "effects": {"independent_delta": 2, "dark_delta": 1, "set_flags": ["ending_the_convert"]},
+                        },
+                        {
+                            "choice_key": "pretend_join_double_agent",
+                            "label": "Pretend to join as a double agent",
+                            "description": "Say yes while keeping your true allegiance to yourself.",
+                            "outcome": "He says yes. He means no. The deep game begins, and Rylos is now running an operation inside an operation, Force-sensitive and pretending not to be, trusted by people he intends to destroy.",
+                            "next_scene_key": "END",
+                            "effects": {"dark_delta": 2, "independent_delta": 1, "set_flags": ["ending_the_infiltrator"]},
+                        },
+                        {
+                            "choice_key": "reject_all_vanish",
+                            "label": "Reject everyone and vanish alone",
+                            "description": "Walk away from every offer and disappear into the galaxy's margins.",
+                            "outcome": "No masters. No network. No name. The Force woke up in him and he walked away from everyone who would use it. Somewhere in the galaxy's margins, Rylos Cesti does not exist — and that is exactly the point.",
+                            "next_scene_key": "END",
+                            "effects": {"light_delta": 2, "independent_delta": 2, "set_flags": ["ending_silent_wanderer"]},
+                        },
+                    ],
+                },
+                {
+                    "scene_key": f"{prefix}_burned_cover",
+                    "title": "Burned",
+                    "prompt": f"The annex operation unravels completely. Warden {rival} has Rylos's real name. Security footage has circulated to three Imperial departments. Every safe house on Dromund Kaas is flagged. The mission is not a failure — it is a catastrophe. Rylos runs with nothing but the clothes on his back and the strange pressure behind his eyes that he still cannot explain. The Empire is hunting him. Directorate Null is watching. And somewhere very far away, a masked enforcer in black armor has heard that a Force-sensitive ghost walked through the annex — and survived.",
+                    "choices": [],
+                    "forced_ending_key": "burned_cover",
                 },
             ],
         }
