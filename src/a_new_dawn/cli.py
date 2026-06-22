@@ -177,7 +177,8 @@ def _render_scene(scene: dict[str, Any]) -> None:
     console.print(stats)
     console.print()
 
-    choices = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+    from rich import box as rich_box
+    choices = Table(show_header=True, header_style="bold", box=rich_box.ROUNDED, padding=(0, 1), border_style="cyan")
     choices.add_column("[dim]#[/dim]", style="dim", width=3)
     choices.add_column("Action", style="bold white")
     choices.add_column("Description", style="dim")
