@@ -65,11 +65,16 @@ The game is choice-driven — no freeform input. Every decision affects your sta
 
 Required env vars: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 
-## Architecture
+## Stack
 
-- **Backend**: FastAPI + Supabase (auth, persistence)
-- **CLI**: Typer + Rich
-- **AI**: OpenAI-compatible client (also supports Ollama and Gemini)
-- **Game state**: episode plans, scene history, and choice history stored in Supabase
+| Layer | Tech |
+|---|---|
+| Backend API | Python, FastAPI |
+| CLI | Typer, Rich |
+| Auth | Supabase Auth (JWT) |
+| Database | Supabase (Postgres) |
+| AI | OpenAI API — scene narration and campaign generation |
+| Hosting | AWS EC2 |
+| Packaging | PyPI (`pip install a-new-dawn`) |
 
-Each turn the backend loads the active scene, returns numbered choices, applies deterministic effects on submit, and advances the story. AI narrates resolutions and scene flavour text.
+Supabase handles auth and all game state (campaigns, episode plans, scene history, choice history). The FastAPI backend runs on EC2 and validates Supabase JWTs on every request. AI narrates scene resolutions and flavour text; the branching story structure itself is deterministic.
