@@ -83,6 +83,32 @@ class AIService:
         self.gemini_api_key = settings.gemini_api_key
 
     def generate_campaign_arc(self, *, player_class: str, era: str, planet: str, seed: int) -> dict[str, Any]:
+        return self.basic_campaign_arc(player_class=player_class, era=era, planet=planet, seed=seed)
+
+    def basic_campaign_arc(self, *, player_class: str, era: str, planet: str, seed: int) -> dict[str, Any]:
+        fallback = CampaignArcModel.model_validate({
+            "title": "STAR WARS: A NEW DAWN",
+            "opening_crawl": DEFAULT_CRAWL,
+            "main_villain_key": "imperial_inquisitor_vael",
+            "main_villain_name": "Imperial Inquisitor Vael",
+            "central_objective_key": "lost_holocron",
+            "central_objective_name": "Lost Holocron",
+            "faction_anchor_key": "outer_rim_rebels",
+            "recurring_allies": [{"key": "kira_veen", "name": "Kira Veen"}],
+            "recurring_rivals": [{"key": "captain_drex", "name": "Captain Drex"}],
+        })
+        return fallback.model_dump()
+
+    def generate_episode_plan(self, *, campaign_arc: dict[str, Any], episode_number: int, player_class: str) -> dict[str, Any]:
+        return self.basic_episode_plan(campaign_arc=campaign_arc, episode_number=episode_number, player_class=player_class)
+
+    def basic_episode_plan(self, *, campaign_arc: dict[str, Any], episode_number: int, player_class: str) -> dict[str, Any]:
+        return EpisodePlanModel.model_validate(self._fallback_episode_plan(campaign_arc, episode_number, player_class)).model_dump()
+
+    def generate_scene_narration_enabled(self) -> bool:
+        return True
+
+    def ai_generate_campaign_arc(self, *, player_class: str, era: str, planet: str, seed: int) -> dict[str, Any]:
         prompt = f"""
 You are designing a 9-episode Star Wars campaign for a choice-driven RPG.
 Return strict JSON with keys:
@@ -96,20 +122,10 @@ Constraints:
 - seed: {seed}
 - Keep it cinematic and concise.
 """
-        fallback = CampaignArcModel.model_validate({
-            "title": "STAR WARS: A NEW DAWN",
-            "opening_crawl": DEFAULT_CRAWL,
-            "main_villain_key": "imperial_inquisitor_vael",
-            "main_villain_name": "Imperial Inquisitor Vael",
-            "central_objective_key": "lost_holocron",
-            "central_objective_name": "Lost Holocron",
-            "faction_anchor_key": "outer_rim_rebels",
-            "recurring_allies": [{"key": "kira_veen", "name": "Kira Veen"}],
-            "recurring_rivals": [{"key": "captain_drex", "name": "Captain Drex"}],
-        })
+        fallback = CampaignArcModel.model_validate(self.basic_campaign_arc(player_class=player_class, era=era, planet=planet, seed=seed))
         return self._validated_json_response(prompt, CampaignArcModel, fallback).model_dump()
 
-    def generate_episode_plan(self, *, campaign_arc: dict[str, Any], episode_number: int, player_class: str) -> dict[str, Any]:
+    def ai_generate_episode_plan(self, *, campaign_arc: dict[str, Any], episode_number: int, player_class: str) -> dict[str, Any]:
         prompt = f"""
 Generate strict JSON for one episode plan of a choice-driven Star Wars RPG.
 Return keys:
@@ -134,7 +150,7 @@ Rules:
 - Player class: {player_class}
 - Campaign arc: {json.dumps(campaign_arc)}
 """
-        fallback = EpisodePlanModel.model_validate(self._fallback_episode_plan(campaign_arc, episode_number, player_class))
+        fallback = EpisodePlanModel.model_validate(self.basic_episode_plan(campaign_arc=campaign_arc, episode_number=episode_number, player_class=player_class))
         return self._validated_json_response(prompt, EpisodePlanModel, fallback).model_dump()
 
     def narrate_scene(self, *, opening_crawl: str, campaign_arc: dict[str, Any], scene: dict[str, Any], stats: dict[str, Any]) -> dict[str, str]:

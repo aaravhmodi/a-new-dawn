@@ -127,6 +127,10 @@ def new_campaign(
     era: str = typer.Option("galactic_civil_war", "--era", hidden=True),
     planet: str = typer.Option("corellia", "--planet", hidden=True),
 ) -> None:
+    console.print(f"[bold blue]{OPENING_LINE}[/bold blue]")
+    time.sleep(1.0)
+    console.print(Panel.fit(TITLE_CARD, border_style="yellow"))
+    console.print("[yellow]Preparing Episode I...[/yellow]")
     with _client() as client:
         response = client.post(
             "/campaigns",
@@ -135,7 +139,10 @@ def new_campaign(
         )
         _raise_with_detail(response)
         campaign = response.json()
-        _print_opening(campaign["story_arc"].get("opening_crawl", ""))
+        for paragraph in campaign["story_arc"].get("opening_crawl", "").split("\n\n"):
+            console.print(paragraph.strip(), style="yellow")
+            console.print()
+            time.sleep(0.8)
 
         scene_response = client.get(f"/campaigns/{campaign['campaign_id']}/current-scene", headers=_headers())
         _raise_with_detail(scene_response)

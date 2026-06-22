@@ -16,7 +16,7 @@ class GameEngine:
 
     def create_campaign(self, *, user_id: UUID, request: CampaignCreateRequest) -> CampaignSummary:
         seed = random.randint(100_000, 999_999)
-        arc = self.ai.generate_campaign_arc(
+        arc = self.ai.basic_campaign_arc(
             player_class=request.player_class.value,
             era=request.era,
             planet=request.planet,
@@ -57,25 +57,23 @@ class GameEngine:
             },
         )
 
-        episodes = []
-        for episode_number in range(1, 10):
-            plan = self.ai.generate_episode_plan(
-                campaign_arc=arc,
-                episode_number=episode_number,
-                player_class=request.player_class.value,
-            )
-            episodes.append(
-                {
-                    "campaign_id": campaign["id"],
-                    "episode_number": episode_number,
-                    "title": plan["title"],
-                    "theme": plan.get("theme"),
-                    "status": "available" if episode_number == 1 else "locked",
-                    "plan_json": plan,
-                    "summary_json": {"summary": plan.get("summary", "")},
-                }
-            )
-        self.store.bulk_insert("episode_plans", episodes)
+        plan = self.ai.basic_episode_plan(
+            campaign_arc=arc,
+            episode_number=1,
+            player_class=request.player_class.value,
+        )
+        self.store.insert(
+            "episode_plans",
+            {
+                "campaign_id": campaign["id"],
+                "episode_number": 1,
+                "title": plan["title"],
+                "theme": plan.get("theme"),
+                "status": "available",
+                "plan_json": plan,
+                "summary_json": {"summary": plan.get("summary", "")},
+            },
+        )
 
         return self._summary_from_campaign(campaign)
 
@@ -213,7 +211,14 @@ class GameEngine:
             self.store.update("episode_plans", filters={"id": episode["id"]}, payload={"status": "completed"})
             if campaign["current_episode"] < 9:
                 next_episode_number = campaign["current_episode"] + 1
-                next_episode = self._require_episode_plan(campaign_id, next_episode_number)
+                next_episode = self.store.select_one("episode_plans", filters={"campaign_id": campaign_id, "episode_number": next_episode_number})
+                if next_episode is None:
+                    next_episode = self._create_episode_plan(
+                        campaign_id=campaign_id,
+                        episode_number=next_episode_number,
+                        campaign_arc=campaign["story_arc"],
+                        player_class=campaign["player_class"],
+                    )
                 self.store.update("episode_plans", filters={"id": next_episode["id"]}, payload={"status": "available"})
                 self.store.update(
                     "campaigns",
@@ -320,6 +325,25 @@ class GameEngine:
         if episode is None:
             raise ValueError(f"Episode {episode_number} plan not found.")
         return episode
+
+    def _create_episode_plan(self, *, campaign_id: UUID, episode_number: int, campaign_arc: dict, player_class: str) -> dict:
+        plan = self.ai.basic_episode_plan(
+            campaign_arc=campaign_arc,
+            episode_number=episode_number,
+            player_class=player_class,
+        )
+        return self.store.insert(
+            "episode_plans",
+            {
+                "campaign_id": str(campaign_id),
+                "episode_number": episode_number,
+                "title": plan["title"],
+                "theme": plan.get("theme"),
+                "status": "locked",
+                "plan_json": plan,
+                "summary_json": {"summary": plan.get("summary", "")},
+            },
+        )
 
     def _resolve_scene_from_plan(self, plan: dict, current_scene_key: str | None) -> dict:
         scenes = plan["scenes"]
