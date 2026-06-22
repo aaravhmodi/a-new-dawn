@@ -62,6 +62,27 @@ def _print_opening(crawl_text: str) -> None:
         time.sleep(0.8)
 
 
+def _print_how_to_play() -> None:
+    console.print(
+        Panel.fit(
+            "\n".join(
+                [
+                    "[bold]How to play[/bold]",
+                    "",
+                    "1. Read the scene.",
+                    "2. Type the number of the choice you want.",
+                    "3. Press Enter.",
+                    "4. Watch the story, stats, and relationships change.",
+                    "",
+                    "Tip: some scenes are special action scenes. Those show Heat, Cover, and Intel.",
+                    "Your choices matter. They change the ending.",
+                ]
+            ),
+            border_style="cyan",
+        )
+    )
+
+
 def _render_scene(scene: dict[str, Any]) -> None:
     console.print(Panel.fit(f"[bold]{scene['title']}[/bold]\n\n{scene['narration']}"))
     scene_state = scene.get("scene_state")
@@ -101,6 +122,7 @@ def _play_scene_loop(client: httpx.Client, campaign_id: str, scene: dict[str, An
     current_scene = scene
     while current_scene:
         _render_scene(current_scene)
+        console.print("[dim]Choose the number of the option you want, then press Enter.[/dim]")
         choice_index = typer.prompt(f"Choose an option (1-{len(current_scene['choices'])})", type=int)
         if choice_index < 1 or choice_index > len(current_scene["choices"]):
             raise typer.BadParameter("Choice out of range.")
@@ -160,6 +182,7 @@ def new_campaign(
     era: str = typer.Option("galactic_civil_war", "--era", hidden=True),
     planet: str = typer.Option("corellia", "--planet", hidden=True),
 ) -> None:
+    _print_how_to_play()
     console.print(f"[bold blue]{OPENING_LINE}[/bold blue]")
     time.sleep(1.0)
     console.print(Panel.fit(TITLE_CARD, border_style="yellow"))
@@ -194,11 +217,18 @@ def play() -> None:
     if not campaign_id:
         raise typer.BadParameter("No campaign stored. Run new-campaign first.")
 
+    _print_how_to_play()
     with _client() as client:
         scene_response = client.get(f"/campaigns/{campaign_id}/current-scene", headers=_headers())
         _raise_with_detail(scene_response)
         scene = scene_response.json()
         _play_scene_loop(client, campaign_id, scene)
+
+
+@app.command("guide")
+def guide() -> None:
+    _print_how_to_play()
+    console.print("[dim]Start a campaign with: a-new-dawn new-campaign[/dim]")
 
 
 @app.command()

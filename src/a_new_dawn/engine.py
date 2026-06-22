@@ -347,12 +347,6 @@ class GameEngine:
         state: dict,
         final_choice: dict,
     ) -> dict[str, str]:
-        story_flags = {row["flag_key"] for row in self.store.select("story_flags", filters={"campaign_id": campaign["id"]})}
-        watcher = self.store.select_one(
-            "relationships",
-            filters={"campaign_id": campaign["id"], "character_key": "watcher_nine"},
-        )
-        watcher_score = int(watcher["score"]) if watcher else 0
         final_choice_key = final_choice["choice_key"]
         dominant_path = self._dominant_path(state)
         archive_state = campaign.get("story_arc", {}).get("episode_state", {}).get("archive_lockdown", {})
@@ -365,13 +359,6 @@ class GameEngine:
                 "ending_key": "burned_cover",
                 "ending_title": "Burned Cover",
                 "ending_summary": "Rylos survives, but the mission burns through every layer of protection. He disappears into the storm as a wanted ghost, hunted by every side that now knows his name.",
-            }
-
-        if archive_intel >= 2 and watcher_score >= 3 and final_choice_key == "report_keeper":
-            return {
-                "ending_key": "trusted_partner",
-                "ending_title": "Trusted Partner",
-                "ending_summary": "The files and the handler both survive. Rylos keeps his cover, earns real trust, and becomes the kind of field agent an intelligence service builds around instead of discarding.",
             }
 
         if dominant_path == "light":

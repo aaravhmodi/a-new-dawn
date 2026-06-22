@@ -34,9 +34,28 @@ a-new-dawn-api
 6. In another terminal, sign up a user and start a campaign:
 
 ```bash
-a-new-dawn signup --email you@example.com --password "your-password" --handle aarav
+a-new-dawn signup you@example.com "your-password" aarav
 a-new-dawn new-campaign
 ```
+
+## How To Play
+
+If you only want the short version:
+
+1. Run `a-new-dawn-api`
+2. Run `a-new-dawn login`
+3. Run `a-new-dawn new-campaign`
+4. Read the scene
+5. Type the number of the choice you want
+6. Press Enter
+
+If you want a reminder inside the CLI, run:
+
+```bash
+a-new-dawn guide
+```
+
+The game is designed to be choice-driven. You do not type freeform commands. You read the prompt, pick a number, and the story updates the stats and ending for you.
 
 ## Architecture
 
