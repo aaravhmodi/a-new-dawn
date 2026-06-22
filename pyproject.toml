@@ -5,36 +5,38 @@ build-backend = "hatchling.build"
 [project]
 name = "a-new-dawn"
 version = "0.1.0"
-description = "STAR WARS: A NEW DAWN - choice-driven CLI RPG scaffold"
+description = "STAR WARS: A NEW DAWN - a choice-driven CLI RPG"
 requires-python = ">=3.11"
 authors = [
   { name = "Aarav Modi" }
 ]
 license = { text = "Proprietary" }
-keywords = ["star-wars", "cli", "rpg", "game", "supabase"]
+keywords = ["star-wars", "cli", "rpg", "game"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
-  "License :: Other/Proprietary License",
   "Operating System :: OS Independent",
   "Environment :: Console",
 ]
 dependencies = [
-  "fastapi>=0.116.0",
   "httpx>=0.28.0",
-  "openai>=1.54.0",
   "pydantic>=2.9.0",
   "pydantic-settings>=2.6.0",
   "PyJWT[crypto]>=2.10.0",
-  "psycopg[binary]>=3.2.0",
   "rich>=13.9.0",
-  "sqlalchemy>=2.0.36",
   "typer>=0.15.0",
-  "uvicorn>=0.32.0"
+]
+
+[project.optional-dependencies]
+server = [
+  "fastapi>=0.116.0",
+  "uvicorn>=0.32.0",
+  "openai>=1.54.0",
+  "psycopg[binary]>=3.2.0",
+  "sqlalchemy>=2.0.36",
 ]
 
 [project.scripts]
-a-new-dawn-api = "a_new_dawn.api:run"
 a-new-dawn = "a_new_dawn.cli:app"
 
 [project.urls]

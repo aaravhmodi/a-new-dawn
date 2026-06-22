@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma3:latest"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    cli_api_base_url: str = "http://127.0.0.1:8000"
+    cli_api_base_url: str = "http://13.58.60.170:8080"
     cli_state_path: str = ".local/a-new-dawn-session.json"
 
     @property
