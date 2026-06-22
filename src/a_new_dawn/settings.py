@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     supabase_db_url: str = ""
     supabase_direct_url: str = ""
-    supabase_url: str
+    supabase_url: str = ""
     supabase_publishable_key: str = ""
     supabase_anon_key: str = ""
     supabase_secret_key: str = ""

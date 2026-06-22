@@ -19,8 +19,31 @@ from a_new_dawn.settings import get_settings
 from a_new_dawn.supabase_store import SupabaseStore
 
 
-app = typer.Typer(help="STAR WARS: A NEW DAWN CLI")
+app = typer.Typer(help="STAR WARS: A NEW DAWN — a choice-driven CLI RPG.", invoke_without_command=True)
 console = Console()
+
+
+@app.callback()
+def _root(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        console.print(Panel(
+            "[bold yellow]STAR WARS: A NEW DAWN[/bold yellow]\n\n"
+            "A choice-driven espionage RPG set in the Galactic Empire.\n\n"
+            "[bold]Getting started:[/bold]\n\n"
+            "  1. Create an account:\n"
+            "     [cyan]a-new-dawn signup <email> <password> <username>[/cyan]\n\n"
+            "  2. Or log in if you have one:\n"
+            "     [cyan]a-new-dawn login <email> <password>[/cyan]\n\n"
+            "  3. Start a new campaign:\n"
+            "     [cyan]a-new-dawn new-campaign[/cyan]\n\n"
+            "  4. Resume where you left off:\n"
+            "     [cyan]a-new-dawn play[/cyan]\n\n"
+            "  5. See all commands:\n"
+            "     [cyan]a-new-dawn --help[/cyan]",
+            title="Welcome",
+            border_style="yellow",
+            padding=(1, 2),
+        ))
 settings = get_settings()
 store = SupabaseStore()
 

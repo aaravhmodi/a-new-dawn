@@ -51,7 +51,8 @@ def healthz() -> dict[str, str]:
 
 
 @app.post("/auth/signup", response_model=SessionResponse)
-def signup(request: SignupRequest) -> SessionResponse:
+def signup(request: SignupRequest, http_request: Request) -> SessionResponse:
+    _check_rate_limit(http_request)
     try:
         data = store.signup(email=request.email, password=request.password, handle=request.handle)
         user = data["user"]
@@ -70,7 +71,8 @@ def signup(request: SignupRequest) -> SessionResponse:
 
 
 @app.post("/auth/login", response_model=SessionResponse)
-def login(request: LoginRequest) -> SessionResponse:
+def login(request: LoginRequest, http_request: Request) -> SessionResponse:
+    _check_rate_limit(http_request)
     try:
         data = store.login(email=request.email, password=request.password)
         user = data["user"]

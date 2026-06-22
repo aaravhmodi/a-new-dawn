@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "a-new-dawn"
-version = "0.1.0"
-description = "STAR WARS: A NEW DAWN - a choice-driven CLI RPG"
+version = "0.1.2"
+description = "STAR WARS: A NEW DAWN - a choice-driven espionage CLI RPG set in the Galactic Empire"
 requires-python = ">=3.11"
 authors = [
   { name = "Aarav Modi" }
