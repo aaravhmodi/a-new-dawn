@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "a-new-dawn"
 version = "0.1.0"
 description = "STAR WARS: A NEW DAWN - choice-driven CLI RPG scaffold"
-readme = "README.md"
 requires-python = ">=3.11"
 authors = [
   { name = "Aarav Modi" }
