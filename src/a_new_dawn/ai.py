@@ -546,7 +546,7 @@ Outcome: {outcome}
                 {
                     "scene_key": f"{prefix}_safehouse_debrief",
                     "title": "The Safe House",
-                    "prompt": f"Rylos slips into a rented room above a repair depot — the kind of place that doesn't log guests. {second_ally} is already there, spreading decrypted fragments across a portable display. The contact's data confirmed what the intercept suggested: the archive contains something classified beyond standard Imperial grade. Outside, the city is quiet. That never lasts.",
+                    "prompt": f"Rylos slips into a rented room above a repair depot — the kind of place that doesn't log guests. {second_ally} is already there, spreading decrypted fragments across a portable display. On the wall, a public Imperial wanted screen cycles through faces. One stops Rylos cold: a Togruta woman, montrals swept back, twin lightsabers at her sides. The bounty is enormous. The name reads: AHSOKA TANO. ARMED. EXTREMELY DANGEROUS. DO NOT ENGAGE ALONE. The screen moves on before {second_ally} notices him looking.",
                     "choices": [
                         {
                             "choice_key": "review_data",
@@ -577,31 +577,31 @@ Outcome: {outcome}
                 {
                     "scene_key": f"{prefix}_shadow_pursuit",
                     "title": "The Shadow on Your Heels",
-                    "prompt": f"Moving toward the archive annex, Rylos notices a tail — professional, patient, switching between two operatives to avoid pattern recognition. This is not {rival}'s style. Someone else has been watching since the cantina, and they are good enough that Rylos only caught them because of that strange new awareness humming behind his eyes.",
+                    "prompt": f"Moving toward the archive annex, Rylos notices a tail — professional, patient, switching positions to avoid pattern recognition. One figure stands out: compact armour under a street coat, a rangefinder visor tilted down. This is not {rival}'s style and it is not Imperial. Someone has put a bounty hunter on him. That strange hum behind Rylos's eyes sharpens, like a warning he does not yet know how to read.",
                     "choices": [
                         {
                             "choice_key": "lose_the_tail",
                             "label": "Lose them in the transit hub",
-                            "description": "Use the crowded station interchange to break the surveillance line cleanly.",
-                            "outcome": "Three platform changes, a service corridor, and a borrowed vendor coat. The tail goes cold. Whoever they were, they will need twenty minutes to reacquire.",
+                            "description": "Use the crowded station interchange to break the surveillance line.",
+                            "outcome": "Three platform changes, a service corridor, a borrowed vendor coat. The armoured figure stops at the last junction and does not follow. For now.",
                             "next_scene_key": f"{prefix}_directorate_reveal",
-                            "effects": {"independent_delta": 1, "set_flags": ["tail_lost"]},
+                            "effects": {"independent_delta": 1, "set_flags": ["boba_fett_evaded"]},
                         },
                         {
                             "choice_key": "confront_tail",
-                            "label": "Double back and confront the follower",
-                            "description": "Flip the dynamic — you become the threat before they know you made them.",
-                            "outcome": f"The operative freezes in a doorway. Not Imperial — civilian clothes, no badge code, a data chip pressed into their palm before they bolt. The chip holds one word: Null.",
+                            "label": "Double back and face the hunter",
+                            "description": "Step into an alcove and let him walk into you instead.",
+                            "outcome": "The hunter stops one pace away. Mandalorian armour, green and battered. He does not draw. 'You have something people want,' Boba Fett says quietly. 'I'm not here for you. Yet.' He steps around Rylos and disappears into the crowd.",
                             "next_scene_key": f"{prefix}_directorate_reveal",
-                            "effects": {"dark_delta": 1, "independent_delta": 1, "set_flags": ["null_chip_recovered", "tail_confronted"]},
+                            "effects": {"dark_delta": 1, "independent_delta": 2, "set_flags": ["boba_fett_confronted", "boba_fett_warned"]},
                         },
                         {
                             "choice_key": "signal_veska",
-                            "label": f"Signal {second_ally} to intercept the tail",
-                            "description": "Let your partner handle the surveillance problem while you stay on approach.",
-                            "outcome": f"{second_ally} peels off and the comms go quiet for four minutes. When she checks back in, her voice is steady: 'Handled. Keep moving.'",
+                            "label": f"Signal {second_ally} to intercept",
+                            "description": "Let your partner cut off the hunter while you stay on approach.",
+                            "outcome": f"{second_ally} loops back. Four minutes of silence, then her voice: 'Mandalorian armour. He let me approach, then walked away. Rylos — someone hired Boba Fett.' A pause. 'Keep moving.'",
                             "next_scene_key": f"{prefix}_directorate_reveal",
-                            "effects": {"relationship_deltas": {"veska_tal": 3}, "set_flags": ["veska_handled_tail"]},
+                            "effects": {"relationship_deltas": {"veska_tal": 3}, "set_flags": ["boba_fett_identified", "veska_handled_tail"]},
                         },
                     ],
                 },

@@ -7,9 +7,12 @@ from typing import Any
 
 import httpx
 import typer
+from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
+from rich.rule import Rule
 from rich.table import Table
+from rich.text import Text
 
 from a_new_dawn.content import OPENING_LINE, TITLE_CARD
 from a_new_dawn.settings import get_settings
@@ -83,39 +86,85 @@ def _print_how_to_play() -> None:
     )
 
 
+def _bar(value: int, max_val: int, width: int, color: str, empty_color: str = "grey30") -> Text:
+    filled = int((value / max_val) * width)
+    bar = Text()
+    bar.append("█" * filled, style=color)
+    bar.append("░" * (width - filled), style=empty_color)
+    return bar
+
+
+def _render_set_piece(scene_state: dict[str, Any]) -> None:
+    heat = scene_state.get("heat", 0)
+    cover = scene_state.get("cover", 0)
+    intel = scene_state.get("intel", 0)
+    beat_title = scene_state.get("beat_title", "Action")
+
+    heat_color = "bright_red" if heat >= 4 else "yellow" if heat >= 2 else "red"
+    cover_color = "bright_green" if cover >= 3 else "yellow" if cover >= 1 else "red"
+
+    danger = heat >= 4 or cover <= 0
+    border = "bright_red" if danger else "yellow"
+    warning = "\n[bold bright_red]⚠  COVER BLOWN — GET OUT[/bold bright_red]" if cover <= 0 else \
+              "\n[bold yellow]⚠  HEAT CRITICAL[/bold yellow]" if heat >= 4 else ""
+
+    heat_bar = _bar(heat, 5, 20, heat_color)
+    cover_bar = _bar(cover, 4, 20, cover_color)
+    intel_bar = _bar(intel, 3, 20, "cyan")
+
+    content = Text()
+    content.append(f"  HEAT   ", style="bold red")
+    content.append_text(heat_bar)
+    content.append(f"  {heat}/5\n")
+    content.append(f"  COVER  ", style="bold green")
+    content.append_text(cover_bar)
+    content.append(f"  {cover}/4\n")
+    content.append(f"  INTEL  ", style="bold cyan")
+    content.append_text(intel_bar)
+    content.append(f"  {intel}/3")
+    if warning:
+        content.append(warning)
+
+    console.print(Rule(f"[bold]{beat_title}[/bold]", style=border))
+    console.print(Panel(content, border_style=border, padding=(0, 1)))
+
+
 def _render_scene(scene: dict[str, Any]) -> None:
     console.print(Panel.fit(f"[bold]{scene['title']}[/bold]\n\n{scene['narration']}"))
     scene_state = scene.get("scene_state")
     if scene_state and scene_state.get("mode") == "set_piece":
-        action = Table(title=scene_state.get("beat_title", "Action"))
-        action.add_column("Heat")
-        action.add_column("Cover")
-        action.add_column("Intel")
-        action.add_row(str(scene_state.get("heat", 0)), str(scene_state.get("cover", 0)), str(scene_state.get("intel", 0)))
-        console.print(action)
-    stats = Table(title="Stats")
-    stats.add_column("Health")
-    stats.add_column("Credits")
-    stats.add_column("Light")
-    stats.add_column("Dark")
-    stats.add_column("Independent")
+        _render_set_piece(scene_state)
+
     info = scene["stats"]
+    hp_pct = info["health"] / info["max_health"]
+    hp_color = "bright_green" if hp_pct > 0.6 else "yellow" if hp_pct > 0.3 else "bright_red"
+    stats = Table(show_header=True, header_style="bold dim", box=None, padding=(0, 2))
+    stats.add_column("HP", style=hp_color)
+    stats.add_column("Credits", style="yellow")
+    stats.add_column("Light", style="bright_cyan")
+    stats.add_column("Dark", style="magenta")
+    stats.add_column("Independent", style="white")
     stats.add_row(
         f"{info['health']}/{info['max_health']}",
-        str(info["credits"]),
-        str(info["light_score"]),
-        str(info["dark_score"]),
-        str(info["independent_score"]),
+        f"₹{info['credits']}",
+        f"◈ {info['light_score']}",
+        f"◈ {info['dark_score']}",
+        f"◈ {info['independent_score']}",
     )
     console.print(stats)
+    console.print()
 
-    choices = Table(title=f"Episode {scene['episode_number']} Choices")
-    choices.add_column("#")
-    choices.add_column("Action")
-    choices.add_column("Description")
+    choices = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+    choices.add_column("[dim]#[/dim]", style="dim", width=3)
+    choices.add_column("Action", style="bold white")
+    choices.add_column("Description", style="dim")
     for index, choice in enumerate(scene["choices"], start=1):
-        choices.add_row(str(index), choice["label"], choice.get("description") or "")
+        choices.add_row(f"[bold cyan]{index}[/bold cyan]", choice["label"], choice.get("description") or "")
     console.print(choices)
+
+
+def _handle_connect_error(exc: Exception) -> None:
+    raise typer.BadParameter("Could not reach the server. Check your connection or try again shortly.") from exc
 
 
 def _play_scene_loop(client: httpx.Client, campaign_id: str, scene: dict[str, Any]) -> None:
@@ -136,12 +185,22 @@ def _play_scene_loop(client: httpx.Client, campaign_id: str, scene: dict[str, An
             )
         _raise_with_detail(result_response)
         result = result_response.json()
-        console.print(Panel.fit(result["resolution_text"], border_style="green"))
+        console.print(Rule(style="green dim"))
+        console.print(Panel.fit(f"[italic]{result['resolution_text']}[/italic]", border_style="green", padding=(1, 2)))
         if result.get("ending_title"):
             ending_text = result.get("ending_summary") or ""
-            console.print(Panel.fit(f"[bold]{result['ending_title']}[/bold]\n\n{ending_text}", border_style="magenta"))
+            console.print()
+            console.print(Rule("[bold magenta]— EPISODE COMPLETE —[/bold magenta]", style="magenta"))
+            console.print()
+            time.sleep(1.0)
+            console.print(Panel(
+                f"[bold magenta]{result['ending_title']}[/bold magenta]\n\n{ending_text}",
+                border_style="magenta",
+                padding=(1, 3),
+            ))
         current_scene = result["next_scene"]
 
+    console.print(Rule(style="dim"))
     console.print("[bold green]Campaign segment complete.[/bold green]")
 
 
@@ -149,32 +208,55 @@ def _check(name: str, ok: bool, detail: str) -> tuple[str, str, str]:
     return (name, "[green]ok[/green]" if ok else "[red]fail[/red]", detail)
 
 
+def _friendly_error(status: int, raw: str) -> str:
+    if status == 401:
+        return "You're not logged in or your session expired. Run: a-new-dawn login <email> <password>"
+    if status == 403:
+        return "Access denied. Run: a-new-dawn login <email> <password>"
+    if status == 404:
+        return "Not found. Try starting a new campaign: a-new-dawn new-campaign"
+    if status == 400:
+        if "invalid_credentials" in raw or "invalid login" in raw.lower():
+            return "Wrong email or password. Please try again."
+        if "already" in raw.lower():
+            return "An account with that email already exists. Try logging in instead."
+    if status >= 500:
+        return "The server hit an error. Please try again in a moment."
+    return raw
+
+
 def _raise_with_detail(response: httpx.Response) -> None:
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        detail = response.text.strip() or str(exc)
-        raise typer.BadParameter(f"{response.status_code} response from backend: {detail}") from exc
+        raw = response.text.strip() or str(exc)
+        raise typer.BadParameter(_friendly_error(response.status_code, raw)) from exc
 
 
 @app.command()
 def signup(email: str, password: str, handle: str) -> None:
-    with _client() as client:
-        response = client.post("/auth/signup", json={"email": email, "password": password, "handle": handle})
-        _raise_with_detail(response)
-        data = response.json()
-        _save_session(data)
-    console.print(f"Signed up as {email}.")
+    try:
+        with _client() as client:
+            response = client.post("/auth/signup", json={"email": email, "password": password, "handle": handle})
+            _raise_with_detail(response)
+            data = response.json()
+            _save_session(data)
+        console.print(f"[green]Account created. Welcome, {handle}![/green]")
+    except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+        _handle_connect_error(exc)
 
 
 @app.command()
 def login(email: str, password: str) -> None:
-    with _client() as client:
-        response = client.post("/auth/login", json={"email": email, "password": password})
-        _raise_with_detail(response)
-        data = response.json()
-        _save_session(data)
-    console.print(f"Logged in as {email}.")
+    try:
+        with _client() as client:
+            response = client.post("/auth/login", json={"email": email, "password": password})
+            _raise_with_detail(response)
+            data = response.json()
+            _save_session(data)
+        console.print(f"[green]Logged in as {email}.[/green]")
+    except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+        _handle_connect_error(exc)
 
 
 @app.command("new-campaign")
@@ -188,27 +270,30 @@ def new_campaign(
     time.sleep(1.0)
     console.print(Panel.fit(TITLE_CARD, border_style="yellow"))
     console.print("[yellow]Preparing Episode I...[/yellow]")
-    with _client() as client:
-        response = client.post(
-            "/campaigns",
-            json={"player_class": player_class, "era": era, "planet": planet},
-            headers=_headers(),
-        )
-        _raise_with_detail(response)
-        campaign = response.json()
-        for paragraph in campaign["story_arc"].get("opening_crawl", "").split("\n\n"):
-            console.print(paragraph.strip(), style="yellow")
-            console.print()
-            time.sleep(0.8)
+    try:
+        with _client() as client:
+            response = client.post(
+                "/campaigns",
+                json={"player_class": player_class, "era": era, "planet": planet},
+                headers=_headers(),
+            )
+            _raise_with_detail(response)
+            campaign = response.json()
+            for paragraph in campaign["story_arc"].get("opening_crawl", "").split("\n\n"):
+                console.print(paragraph.strip(), style="yellow")
+                console.print()
+                time.sleep(0.8)
 
-        scene_response = client.get(f"/campaigns/{campaign['campaign_id']}/current-scene", headers=_headers())
-        _raise_with_detail(scene_response)
-        scene = scene_response.json()
+            scene_response = client.get(f"/campaigns/{campaign['campaign_id']}/current-scene", headers=_headers())
+            _raise_with_detail(scene_response)
+            scene = scene_response.json()
 
-        session = _load_session()
-        session["campaign_id"] = campaign["campaign_id"]
-        _save_session(session)
-        _play_scene_loop(client, campaign["campaign_id"], scene)
+            session = _load_session()
+            session["campaign_id"] = campaign["campaign_id"]
+            _save_session(session)
+            _play_scene_loop(client, campaign["campaign_id"], scene)
+    except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+        _handle_connect_error(exc)
 
 
 @app.command()
@@ -219,11 +304,14 @@ def play() -> None:
         raise typer.BadParameter("No campaign stored. Run new-campaign first.")
 
     _print_how_to_play()
-    with _client() as client:
-        scene_response = client.get(f"/campaigns/{campaign_id}/current-scene", headers=_headers())
-        _raise_with_detail(scene_response)
-        scene = scene_response.json()
-        _play_scene_loop(client, campaign_id, scene)
+    try:
+        with _client() as client:
+            scene_response = client.get(f"/campaigns/{campaign_id}/current-scene", headers=_headers())
+            _raise_with_detail(scene_response)
+            scene = scene_response.json()
+            _play_scene_loop(client, campaign_id, scene)
+    except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+        _handle_connect_error(exc)
 
 
 @app.command("guide")

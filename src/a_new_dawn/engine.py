@@ -195,6 +195,7 @@ class GameEngine:
 
         next_scene_key = choice["next_scene_key"]
         is_ending = next_scene_key == "END"
+        ending: dict = {}
 
         if not is_ending:
             next_scene_key = self._canonical_scene_key(next_scene_key)
@@ -225,8 +226,15 @@ class GameEngine:
                     user_id=user_id,
                 )
 
-        resolution_text = resolution_future.result()
-        next_scene = next_scene_future.result() if next_scene_future else None
+        try:
+            resolution_text = resolution_future.result()
+        except Exception:
+            resolution_text = choice.get("outcome", "")
+
+        try:
+            next_scene = next_scene_future.result() if next_scene_future else None
+        except Exception:
+            next_scene = None
 
         if instance:
             self.store.update(

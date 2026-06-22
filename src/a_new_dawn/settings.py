@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     supabase_jwt_audience: str = "authenticated"
     supabase_jwt_issuer: str | None = None
     supabase_jwks_url: str | None = None
-    llm_provider: str = "modelrelay"
+    llm_provider: str = "gemini"
     openai_api_key: str | None = None
     openai_model: str = "auto-fastest"
     openai_base_url: str | None = None
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma3:latest"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    cli_api_base_url: str = "http://13.58.60.170:8080"
+    cli_api_base_url: str = "http://13.58.60.170"
     cli_state_path: str = ".local/a-new-dawn-session.json"
 
     @property
