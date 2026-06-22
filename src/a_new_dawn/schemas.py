@@ -52,6 +52,7 @@ class SceneResponse(BaseModel):
     narration: str
     choices: list[ChoiceOption]
     stats: dict[str, Any]
+    scene_state: dict[str, Any] | None = None
 
 
 class CampaignSummary(BaseModel):

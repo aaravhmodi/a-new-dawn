@@ -170,10 +170,10 @@ def new_campaign(
         _raise_with_detail(scene_response)
         scene = scene_response.json()
 
-    session = _load_session()
-    session["campaign_id"] = campaign["campaign_id"]
-    _save_session(session)
-    _play_scene_loop(client, campaign["campaign_id"], scene)
+        session = _load_session()
+        session["campaign_id"] = campaign["campaign_id"]
+        _save_session(session)
+        _play_scene_loop(client, campaign["campaign_id"], scene)
 
 
 @app.command()

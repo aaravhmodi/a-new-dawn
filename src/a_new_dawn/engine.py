@@ -96,6 +96,9 @@ class GameEngine:
             },
         )
         if instance is None:
+            resolution_json = {}
+            if scene.get("set_piece"):
+                resolution_json = {"action_state": {"beat": 1, "heat": 0, "cover": 2, "intel": 0}}
             instance = self.store.insert(
                 "scene_instances",
                 {
@@ -105,16 +108,11 @@ class GameEngine:
                     "status": "pending",
                     "scene_index": self._scene_index(episode["plan_json"], scene["scene_key"]),
                     "prompt_context": {"episode_title": episode["title"], "scene_title": scene["title"]},
-                    "resolution_json": {},
+                    "resolution_json": resolution_json,
                 },
             )
 
-        narration = self.ai.narrate_scene(
-            opening_crawl=campaign["story_arc"].get("opening_crawl", ""),
-            campaign_arc=campaign["story_arc"],
-            scene=scene,
-            stats=self._stats_dict(state),
-        )
+        scene_response = self._build_scene_response(campaign=campaign, state=state, scene=scene, instance=instance)
 
         self.store.update(
             "scene_instances",
@@ -132,29 +130,38 @@ class GameEngine:
                 "campaign_id": str(campaign_id),
                 "episode_number": campaign["current_episode"],
                 "scene_key": scene["scene_key"],
-                "narration_text": narration["narration"],
-                "llm_metadata": {"title": narration["title"]},
+                "narration_text": scene_response.narration,
+                "llm_metadata": {"title": scene_response.title},
             },
         )
 
-        return SceneResponse(
-            campaign_id=UUID(campaign["id"]),
-            episode_number=campaign["current_episode"],
-            scene_key=scene["scene_key"],
-            title=narration["title"],
-            narration=narration["narration"],
-            choices=[
-                ChoiceOption(choice_key=choice["choice_key"], label=choice["label"], description=choice.get("description"))
-                for choice in scene["choices"]
-            ],
-            stats=self._stats_dict(state),
-        )
+        return scene_response
 
     def choose(self, *, campaign_id: UUID, user_id: UUID, choice_key: str) -> ChoiceResult:
         campaign = self._require_campaign(campaign_id, user_id)
         state = self._require_player_state(campaign_id)
         episode = self._require_episode_plan(campaign_id, campaign["current_episode"])
         scene = self._resolve_scene_from_plan(episode["plan_json"], campaign.get("current_scene_key"))
+        instance = self.store.select_one(
+            "scene_instances",
+            filters={
+                "campaign_id": campaign_id,
+                "episode_number": campaign["current_episode"],
+                "scene_key": scene["scene_key"],
+            },
+        )
+        if scene.get("set_piece"):
+            return self._choose_set_piece(
+                campaign=campaign,
+                state=state,
+                episode=episode,
+                scene=scene,
+                instance=instance,
+                user_id=user_id,
+                campaign_id=campaign_id,
+                choice_key=choice_key,
+            )
+
         choice = next((item for item in scene["choices"] if item["choice_key"] == choice_key), None)
         if choice is None:
             raise ValueError(f"Choice '{choice_key}' is not valid for scene '{scene['scene_key']}'.")
@@ -167,14 +174,6 @@ class GameEngine:
             outcome=choice.get("outcome", ""),
         )
 
-        instance = self.store.select_one(
-            "scene_instances",
-            filters={
-                "campaign_id": campaign_id,
-                "episode_number": campaign["current_episode"],
-                "scene_key": scene["scene_key"],
-            },
-        )
         if instance:
             self.store.update(
                 "scene_instances",
@@ -238,6 +237,88 @@ class GameEngine:
                 "campaigns",
                 filters={"id": campaign_id},
                 payload={"current_scene_key": next_scene_key, "updated_at": self._utc_now()},
+            )
+            next_scene = self.get_current_scene(campaign_id=campaign_id, user_id=user_id)
+
+        return ChoiceResult(resolution_text=resolution_text, next_scene=next_scene)
+
+    def _choose_set_piece(
+        self,
+        *,
+        campaign: dict,
+        state: dict,
+        episode: dict,
+        scene: dict,
+        instance: dict | None,
+        user_id: UUID,
+        campaign_id: UUID,
+        choice_key: str,
+    ) -> ChoiceResult:
+        if instance is None:
+            raise ValueError("Set piece state not initialized.")
+
+        action_state = instance.get("resolution_json", {}).get("action_state", {"beat": 1, "heat": 0, "cover": 2, "intel": 0})
+        beat_number = int(action_state.get("beat", 1))
+        beats = scene["set_piece"]["beats"]
+        beat = beats[beat_number - 1]
+        choice = next((item for item in beat["choices"] if item["choice_key"] == choice_key), None)
+        if choice is None:
+            raise ValueError(f"Choice '{choice_key}' is not valid for set piece beat {beat_number}.")
+
+        effects = choice.get("effects", {})
+        action_state["heat"] = action_state.get("heat", 0) + effects.get("heat_delta", 0)
+        action_state["cover"] = action_state.get("cover", 0) + effects.get("cover_delta", 0)
+        action_state["intel"] = action_state.get("intel", 0) + effects.get("intel_delta", 0)
+
+        gameplay_effects = {k: v for k, v in effects.items() if not k.endswith("_delta") or k in {"credits_delta", "health_delta", "light_delta", "dark_delta", "independent_delta"}}
+        self._apply_effects(campaign_id=campaign_id, episode_number=campaign["current_episode"], state=state, effects=gameplay_effects)
+
+        resolution_text = choice.get("outcome", "")
+        next_scene: SceneResponse | None
+
+        if beat_number < len(beats):
+            action_state["beat"] = beat_number + 1
+            self.store.update(
+                "scene_instances",
+                filters={"id": instance["id"]},
+                payload={"resolution_json": {"action_state": action_state}},
+            )
+            refreshed_instance = self.store.select_one("scene_instances", filters={"id": instance["id"]})
+            next_scene = self._build_scene_response(campaign=campaign, state=self._require_player_state(campaign_id), scene=scene, instance=refreshed_instance)
+        else:
+            resolution_text = f"{resolution_text}\n\n{self._resolve_set_piece_outcome(action_state)}"
+            self.store.update(
+                "scene_instances",
+                filters={"id": instance["id"]},
+                payload={"status": "resolved", "resolution_json": {"action_state": action_state, "choice_key": choice_key, "outcome": resolution_text}},
+            )
+            self.store.insert(
+                "choice_history",
+                {
+                    "campaign_id": str(campaign_id),
+                    "episode_number": campaign["current_episode"],
+                    "scene_key": scene["scene_key"],
+                    "choice_key": choice["choice_key"],
+                    "choice_label": choice["label"],
+                    "effects_json": effects,
+                },
+            )
+            self.store.insert(
+                "scene_history",
+                {
+                    "campaign_id": str(campaign_id),
+                    "episode_number": campaign["current_episode"],
+                    "scene_key": scene["scene_key"],
+                    "narration_text": beat["prompt"],
+                    "selected_choice_key": choice["choice_key"],
+                    "consequence_text": resolution_text,
+                    "llm_metadata": {"set_piece": True},
+                },
+            )
+            self.store.update(
+                "campaigns",
+                filters={"id": campaign_id},
+                payload={"current_scene_key": scene["set_piece"]["next_scene_key"], "updated_at": self._utc_now()},
             )
             next_scene = self.get_current_scene(campaign_id=campaign_id, user_id=user_id)
 
@@ -382,3 +463,57 @@ class GameEngine:
 
     def _utc_now(self) -> str:
         return datetime.now(timezone.utc).isoformat()
+
+    def _build_scene_response(self, *, campaign: dict, state: dict, scene: dict, instance: dict) -> SceneResponse:
+        if scene.get("set_piece"):
+            action_state = instance.get("resolution_json", {}).get("action_state", {"beat": 1, "heat": 0, "cover": 2, "intel": 0})
+            beat_number = int(action_state.get("beat", 1))
+            beat = scene["set_piece"]["beats"][beat_number - 1]
+            narration = beat["prompt"]
+            title = scene["title"]
+            choices = [
+                ChoiceOption(choice_key=choice["choice_key"], label=choice["label"], description=choice.get("description"))
+                for choice in beat["choices"]
+            ]
+            scene_state = {
+                "mode": "set_piece",
+                "beat_title": beat["title"],
+                "heat": action_state.get("heat", 0),
+                "cover": action_state.get("cover", 0),
+                "intel": action_state.get("intel", 0),
+            }
+        else:
+            rendered = self.ai.narrate_scene(
+                opening_crawl=campaign["story_arc"].get("opening_crawl", ""),
+                campaign_arc=campaign["story_arc"],
+                scene=scene,
+                stats=self._stats_dict(state),
+            )
+            title = rendered["title"]
+            narration = rendered["narration"]
+            choices = [
+                ChoiceOption(choice_key=choice["choice_key"], label=choice["label"], description=choice.get("description"))
+                for choice in scene["choices"]
+            ]
+            scene_state = None
+
+        return SceneResponse(
+            campaign_id=UUID(campaign["id"]),
+            episode_number=campaign["current_episode"],
+            scene_key=scene["scene_key"],
+            title=title,
+            narration=narration,
+            choices=choices,
+            stats=self._stats_dict(state),
+            scene_state=scene_state,
+        )
+
+    def _resolve_set_piece_outcome(self, action_state: dict) -> str:
+        heat = action_state.get("heat", 0)
+        cover = action_state.get("cover", 0)
+        intel = action_state.get("intel", 0)
+        if intel >= 2 and heat <= 2:
+            return "Rylos escapes the annex with strong evidence and a clean enough trail that Watcher Nine can still work from the shadows."
+        if heat >= 5 or cover <= 0:
+            return "Rylos gets out alive, but the operation turns messy. Security now knows a ghost moved through the annex, and Warden Karn will not let it go."
+        return "Rylos escapes with usable evidence, but the annex is fully alerted. The mission is still alive, only now the hunters know they are being hunted."
