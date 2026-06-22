@@ -114,6 +114,9 @@ def _play_scene_loop(client: httpx.Client, campaign_id: str, scene: dict[str, An
         _raise_with_detail(result_response)
         result = result_response.json()
         console.print(Panel.fit(result["resolution_text"], border_style="green"))
+        if result.get("ending_title"):
+            ending_text = result.get("ending_summary") or ""
+            console.print(Panel.fit(f"[bold]{result['ending_title']}[/bold]\n\n{ending_text}", border_style="magenta"))
         current_scene = result["next_scene"]
 
     console.print("[bold green]Campaign segment complete.[/bold green]")

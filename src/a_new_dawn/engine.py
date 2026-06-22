@@ -211,8 +211,6 @@ class GameEngine:
                 campaign=campaign,
                 state=state,
                 final_choice=choice,
-                scene=scene,
-                resolution_text=resolution_text,
             )
             self._finalize_campaign(
                 campaign=campaign,
@@ -282,6 +280,14 @@ class GameEngine:
             next_scene = self._build_scene_response(campaign=campaign, state=self._require_player_state(campaign_id), scene=scene, instance=refreshed_instance)
         else:
             resolution_text = f"{resolution_text}\n\n{self._resolve_set_piece_outcome(action_state)}"
+            story_arc = dict(campaign.get("story_arc", {}))
+            episode_state = dict(story_arc.get("episode_state", {}))
+            episode_state["archive_lockdown"] = {
+                "heat": action_state.get("heat", 0),
+                "cover": action_state.get("cover", 0),
+                "intel": action_state.get("intel", 0),
+            }
+            story_arc["episode_state"] = episode_state
             self.store.update(
                 "scene_instances",
                 filters={"id": instance["id"]},
@@ -313,7 +319,7 @@ class GameEngine:
             self.store.update(
                 "campaigns",
                 filters={"id": campaign_id},
-                payload={"current_scene_key": scene["set_piece"]["next_scene_key"], "updated_at": self._utc_now()},
+                payload={"current_scene_key": scene["set_piece"]["next_scene_key"], "story_arc": story_arc, "updated_at": self._utc_now()},
             )
             next_scene = self.get_current_scene(campaign_id=campaign_id, user_id=user_id)
 
@@ -340,8 +346,6 @@ class GameEngine:
         campaign: dict,
         state: dict,
         final_choice: dict,
-        scene: dict,
-        resolution_text: str,
     ) -> dict[str, str]:
         story_flags = {row["flag_key"] for row in self.store.select("story_flags", filters={"campaign_id": campaign["id"]})}
         watcher = self.store.select_one(
@@ -351,13 +355,23 @@ class GameEngine:
         watcher_score = int(watcher["score"]) if watcher else 0
         final_choice_key = final_choice["choice_key"]
         dominant_path = self._dominant_path(state)
-        set_piece_state = scene.get("set_piece") is not None
+        archive_state = campaign.get("story_arc", {}).get("episode_state", {}).get("archive_lockdown", {})
+        archive_heat = int(archive_state.get("heat", 0))
+        archive_cover = int(archive_state.get("cover", 0))
+        archive_intel = int(archive_state.get("intel", 0))
 
-        if state["health"] <= 0 or (set_piece_state and self._scene_heat_from_resolution(campaign["id"], scene["scene_key"]) >= 4 and self._scene_cover_from_resolution(campaign["id"], scene["scene_key"]) <= 0):
+        if state["health"] <= 0 or archive_heat >= 5 or archive_cover <= 0:
             return {
                 "ending_key": "burned_cover",
                 "ending_title": "Burned Cover",
                 "ending_summary": "Rylos survives, but the mission burns through every layer of protection. He disappears into the storm as a wanted ghost, hunted by every side that now knows his name.",
+            }
+
+        if archive_intel >= 2 and watcher_score >= 3 and final_choice_key == "report_keeper":
+            return {
+                "ending_key": "trusted_partner",
+                "ending_title": "Trusted Partner",
+                "ending_summary": "The files and the handler both survive. Rylos keeps his cover, earns real trust, and becomes the kind of field agent an intelligence service builds around instead of discarding.",
             }
 
         if dominant_path == "light":
@@ -425,24 +439,6 @@ class GameEngine:
         if dark_score >= light_score and dark_score >= independent_score:
             return "dark"
         return "independent"
-
-    def _scene_heat_from_resolution(self, campaign_id: UUID, scene_key: str) -> int:
-        instance = self.store.select_one(
-            "scene_instances",
-            filters={"campaign_id": campaign_id, "scene_key": scene_key},
-        )
-        if not instance:
-            return 0
-        return int(instance.get("resolution_json", {}).get("action_state", {}).get("heat", 0))
-
-    def _scene_cover_from_resolution(self, campaign_id: UUID, scene_key: str) -> int:
-        instance = self.store.select_one(
-            "scene_instances",
-            filters={"campaign_id": campaign_id, "scene_key": scene_key},
-        )
-        if not instance:
-            return 0
-        return int(instance.get("resolution_json", {}).get("action_state", {}).get("cover", 0))
 
     def _apply_effects(self, *, campaign_id: UUID, episode_number: int, state: dict, effects: dict) -> None:
         updated_state = {
