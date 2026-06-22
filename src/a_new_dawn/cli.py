@@ -228,7 +228,8 @@ def _play_scene_loop(client: httpx.Client, campaign_id: str, scene: dict[str, An
                 border_style="magenta",
                 padding=(1, 3),
             ))
-        current_scene = result["next_scene"]
+        next_scene = result["next_scene"]
+        current_scene = next_scene if next_scene and next_scene.get("choices") else None
 
     console.print(Rule(style="dim"))
     console.print("[bold green]Campaign segment complete.[/bold green]")

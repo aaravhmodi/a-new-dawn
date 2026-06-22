@@ -17,3 +17,8 @@ dist/
 .private-docs/
 .claude/
 *.pem
+AI_INTEGRATION.md
+campaign-intro-content.md
+episode-1-outline.md
+starwars-rpg-system-design.md
+story-format.md
