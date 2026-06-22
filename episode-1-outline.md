@@ -27,6 +27,15 @@ AI should not invent the structure of this episode.
 
 Rylos Cesti, a covert field operative working for an Imperial intelligence branch, is sent to Dromund Kaas under a false identity. His mission is to trace a leak tied to a shadow network called Directorate Null, a hidden group that wants to break the power of both Sith and Jedi. To do that, he must enter a criminal social circle, secure stolen archive data, survive a lockdown, and decide what to do with the truth. At the end of the mission, under pressure and fear, he uses the Force for the first time without understanding how.
 
+### Canon Cameos
+
+This episode should include brief, purposeful encounters or presences from familiar canon characters:
+
+- **Boba Fett** as the hired hunter who appears during the archive lockdown
+- **Darth Vader** as the silent, terrifying Imperial power who receives the report at the end
+
+These should support the story, not take it over.
+
 ## Plain-Language Setup
 
 These concepts must be explained naturally:
@@ -576,6 +585,8 @@ This is the first quiet scene where the player feels the moral line forming.
 ### Scene
 
 A hijacked pirate broadcast cuts through secure channels. A masked speaker claims the galaxy has been trapped for generations between priest-warriors and tyrants with supernatural power. The message frames Directorate Null as a liberating force that intends to break the cycle.
+
+Darth Vader listens in on a secure Imperial line as the signal resolves. He does not speak, but his presence makes the danger feel bigger.
 
 Rylos now understands the enemy is ideological, not merely criminal.
 

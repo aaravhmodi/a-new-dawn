@@ -388,7 +388,7 @@ Outcome: {outcome}
                 {
                     "scene_key": f"{prefix}_archive_lockdown",
                     "title": "Archive Lockdown",
-                    "prompt": f"The intelligence annex sits beneath layered security fields. Inside is a fragment of the {campaign_arc['central_objective_name']}, and outside, {rival} has begun to suspect a mole. Rylos feels a strange pressure behind his eyes as he approaches the vault.",
+                    "prompt": f"The intelligence annex sits beneath layered security fields. Inside is a fragment of the {campaign_arc['central_objective_name']}, and outside, {rival} has begun to suspect a mole. Rylos feels a strange pressure behind his eyes as he approaches the vault. A rumor on the security channel says a hired bounty hunter, Boba Fett, may already be in the building.",
                     "set_piece": {
                         "next_scene_key": f"{prefix}_intercept",
                         "beats": [
@@ -448,27 +448,27 @@ Outcome: {outcome}
                             },
                             {
                                 "title": "Beat 3: Escape",
-                                "prompt": f"Red lockdown lights flood the annex. {rival}'s officers are closing fast, and Rylos has one move left before the whole district seals around him.",
+                                "prompt": f"Red lockdown lights flood the annex. {rival}'s officers are closing fast, and Rylos has one move left before the whole district seals around him. At the far end of the corridor, a helmeted bounty hunter appears through the smoke - Boba Fett, hired to retrieve the same data.",
                                 "choices": [
                                     {
                                         "choice_key": "fight_through_exit",
                                         "label": "Fight through the nearest exit",
                                         "description": "Push hard before security can tighten the kill box.",
-                                        "outcome": "Rylos smashes through the first response line and forces open a narrow path into the rain.",
+                                        "outcome": "Rylos smashes through the first response line and forces open a narrow path into the rain while Boba Fett raises his weapon just long enough to make the escape feel impossible.",
                                         "effects": {"heat_delta": 1, "cover_delta": -1},
                                     },
                                     {
                                         "choice_key": "machinery_collapse",
                                         "label": "Trigger a machinery collapse behind you",
                                         "description": "Delay pursuit by bringing part of the annex down.",
-                                        "outcome": "A shower of sparks and steel crashes into the corridor, burying the pursuit team under wreckage and panic.",
+                                        "outcome": "A shower of sparks and steel crashes into the corridor, burying the pursuit team under wreckage and panic while the bounty hunter vanishes into the smoke.",
                                         "effects": {"heat_delta": -1, "dark_delta": 1},
                                     },
                                     {
                                         "choice_key": "service_lift",
                                         "label": "Disappear into a service lift",
                                         "description": "Trust stealth over violence for the final escape.",
-                                        "outcome": "Rylos slips into a grimy service lift and vanishes between levels while the patrols rush past.",
+                                        "outcome": "Rylos slips into a grimy service lift and vanishes between levels while Boba Fett is forced to choose between the chase and the collapsing corridor.",
                                         "effects": {"cover_delta": 1},
                                     },
                                 ],
@@ -480,13 +480,13 @@ Outcome: {outcome}
                 {
                     "scene_key": f"{prefix}_intercept",
                     "title": "The Silent Broadcast",
-                    "prompt": "A pirate signal cuts through every secure channel in the district. A masked voice claims the age of Jedi and Sith is ending, and Rylos's stolen files prove this is only the opening move. Then the room shudders, metal groans, and something impossible answers his fear.",
+                    "prompt": "A pirate signal cuts through every secure channel in the district. A masked voice claims the age of Jedi and Sith is ending, and Rylos's stolen files prove this is only the opening move. Then the room shudders, metal groans, and something impossible answers his fear. In a secure Imperial relay, Darth Vader listens in silence as the report reaches him.",
                     "choices": [
                         {
                             "choice_key": "report_keeper",
                             "label": f"Transmit everything to {ally}",
                             "description": "Hand the evidence to your handler and request extraction.",
-                            "outcome": "The files go out over a secure burst just as loose equipment lifts and slams aside without Rylos touching it. Command orders him deeper into the hunt, but he knows something awakened inside him.",
+                            "outcome": "The files go out over a secure burst just as loose equipment lifts and slams aside without Rylos touching it. Somewhere far away, Vader now knows a hidden asset is awakening, and command orders Rylos deeper into the hunt.",
                             "next_scene_key": "END",
                             "effects": {"relationship_deltas": {"watcher_nine": 3}, "light_delta": 1, "set_flags": [f"episode_{episode_number}_cleared", "swore_to_the_mission", "force_sensitive_awakened"]},
                         },
@@ -494,7 +494,7 @@ Outcome: {outcome}
                             "choice_key": "keep_blackmail_copy",
                             "label": "Keep a private copy of the files",
                             "description": "Hold leverage back from your own command structure.",
-                            "outcome": "Rylos sends a partial report and hides the rest, then instinctively reaches for a falling data core and stops it in midair. He leaves with leverage and the terrible certainty that he is Force-sensitive.",
+                            "outcome": "Rylos sends a partial report and hides the rest, then instinctively reaches for a falling data core and stops it in midair. Vader's interest in the disturbance makes the galaxy feel smaller and far more dangerous.",
                             "next_scene_key": "END",
                             "effects": {"independent_delta": 3, "dark_delta": 1, "set_flags": [f"episode_{episode_number}_cleared", "kept_blackmail_copy", "force_sensitive_awakened"]},
                         },
@@ -502,7 +502,7 @@ Outcome: {outcome}
                             "choice_key": "burn_the_files",
                             "label": "Burn the files and vanish",
                             "description": "Deny every faction the weaponized knowledge you just found.",
-                            "outcome": "The data turns to ash, but when blaster fire tears through the archive, Rylos throws out a hand and the bolt deflects off a bent durasteel panel. The masked network now knows a dangerous operative stands in its way, and Rylos knows the Force lives in him.",
+                            "outcome": "The data turns to ash, but when blaster fire tears through the archive, Rylos throws out a hand and the bolt deflects off a bent durasteel panel. Darth Vader receives only a partial signal, but it is enough to know the hunt has begun.",
                             "next_scene_key": "END",
                             "effects": {"light_delta": 2, "set_flags": [f"episode_{episode_number}_cleared", "burned_first_fragment", "force_sensitive_awakened"]},
                         },

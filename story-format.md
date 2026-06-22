@@ -70,6 +70,10 @@ The player should never need outside lore knowledge to understand the stakes.
 
 ## Episode Format
 
+The shipped prototype should have **1 fully polished episode**.
+
+Later episodes can follow the same format, but they should not block release.
+
 Each episode should have **10 prompts/scenes**.
 
 Each episode should also follow the classic Star Wars act rhythm:

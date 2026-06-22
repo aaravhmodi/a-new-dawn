@@ -64,6 +64,14 @@ def _print_opening(crawl_text: str) -> None:
 
 def _render_scene(scene: dict[str, Any]) -> None:
     console.print(Panel.fit(f"[bold]{scene['title']}[/bold]\n\n{scene['narration']}"))
+    scene_state = scene.get("scene_state")
+    if scene_state and scene_state.get("mode") == "set_piece":
+        action = Table(title=scene_state.get("beat_title", "Action"))
+        action.add_column("Heat")
+        action.add_column("Cover")
+        action.add_column("Intel")
+        action.add_row(str(scene_state.get("heat", 0)), str(scene_state.get("cover", 0)), str(scene_state.get("intel", 0)))
+        console.print(action)
     stats = Table(title="Stats")
     stats.add_column("Health")
     stats.add_column("Credits")

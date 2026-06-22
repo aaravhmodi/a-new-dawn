@@ -3,11 +3,23 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "starwars-a-new-dawn"
+name = "a-new-dawn"
 version = "0.1.0"
 description = "STAR WARS: A NEW DAWN - choice-driven CLI RPG scaffold"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+  { name = "Aarav Modi" }
+]
+license = { text = "Proprietary" }
+keywords = ["star-wars", "cli", "rpg", "game", "supabase"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "License :: Other/Proprietary License",
+  "Operating System :: OS Independent",
+  "Environment :: Console",
+]
 dependencies = [
   "fastapi>=0.116.0",
   "httpx>=0.28.0",
@@ -25,6 +37,10 @@ dependencies = [
 [project.scripts]
 a-new-dawn-api = "a_new_dawn.api:run"
 a-new-dawn = "a_new_dawn.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/yourname/a-new-dawn"
+Repository = "https://github.com/yourname/a-new-dawn"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/a_new_dawn"]

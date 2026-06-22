@@ -8,6 +8,7 @@ This repo now contains a working scaffold for a choice-driven CLI RPG with:
 - persistence through Supabase Auth + REST APIs
 - verified Supabase JWT auth in the FastAPI layer
 - seed catalogs for eras, classes, items, factions, and canon cameo rules
+- a single ship-ready Episode I prototype with a special action set piece
 
 ## Quick Start
 
@@ -65,10 +66,9 @@ The backend:
 
 1. creates a campaign row
 2. creates base `player_state`
-3. generates a campaign arc
-4. generates 9 episode plans
-5. stores each plan in `episode_plans`
-6. creates the first scene instance
+3. creates a fixed campaign arc for the one playable episode
+4. stores Episode I in `episode_plans`
+5. creates the first scene instance
 
 ### Each turn
 
@@ -85,5 +85,6 @@ The backend:
 ## Where To Extend
 
 - Replace the simple engine with richer combat and relationship logic.
+- Expand into more episodes after Episode I is polished.
 - Add item catalogs and cameo catalogs as seed tables.
 - Add caching for AI-generated narration.

@@ -208,30 +208,12 @@ class GameEngine:
         next_scene_key = choice["next_scene_key"]
         if next_scene_key == "END":
             self.store.update("episode_plans", filters={"id": episode["id"]}, payload={"status": "completed"})
-            if campaign["current_episode"] < 9:
-                next_episode_number = campaign["current_episode"] + 1
-                next_episode = self.store.select_one("episode_plans", filters={"campaign_id": campaign_id, "episode_number": next_episode_number})
-                if next_episode is None:
-                    next_episode = self._create_episode_plan(
-                        campaign_id=campaign_id,
-                        episode_number=next_episode_number,
-                        campaign_arc=campaign["story_arc"],
-                        player_class=campaign["player_class"],
-                    )
-                self.store.update("episode_plans", filters={"id": next_episode["id"]}, payload={"status": "available"})
-                self.store.update(
-                    "campaigns",
-                    filters={"id": campaign_id},
-                    payload={"current_episode": next_episode_number, "current_scene_key": None, "updated_at": self._utc_now()},
-                )
-                next_scene = self.get_current_scene(campaign_id=campaign_id, user_id=user_id)
-            else:
-                self.store.update(
-                    "campaigns",
-                    filters={"id": campaign_id},
-                    payload={"status": "completed", "current_scene_key": None, "updated_at": self._utc_now()},
-                )
-                next_scene = None
+            self.store.update(
+                "campaigns",
+                filters={"id": campaign_id},
+                payload={"status": "completed", "current_scene_key": None, "updated_at": self._utc_now()},
+            )
+            next_scene = None
         else:
             self.store.update(
                 "campaigns",
