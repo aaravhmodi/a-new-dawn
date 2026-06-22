@@ -40,7 +40,7 @@ def _load_session() -> dict[str, Any]:
 
 
 def _client() -> httpx.Client:
-    return httpx.Client(base_url=settings.cli_api_base_url, timeout=60.0)
+    return httpx.Client(base_url=settings.cli_api_base_url, timeout=180.0)
 
 
 def _headers() -> dict[str, str]:

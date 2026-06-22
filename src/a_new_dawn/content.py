@@ -12,14 +12,13 @@ TITLE_CARD = r"""
 """
 
 DEFAULT_CRAWL = """
-Civil war shadows the galaxy.
+War and prophecy have blinded the galaxy.
 
-Imperial control tightens across the Outer Rim while scattered
-cells of resistance trade whispers, credits, and stolen data
-in the dark between the stars.
+While Sith and Jedi struggle for power, a quieter conflict
+spreads through hidden channels, coded transmissions, and
+the back rooms of syndicates that profit from endless war.
 
-On the industrial world of Corellia, an ordinary life is about
-to collide with smugglers, spies, and a secret powerful enough
-to shift the fate of entire systems....
+On the edge of Imperial space, a newly recruited field agent
+named Rylos Cesti is sent under deep cover to uncover a conspiracy that seeks
+to break both Force-wielding orders from the shadows....
 """.strip()
-
