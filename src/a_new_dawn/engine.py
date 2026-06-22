@@ -85,7 +85,14 @@ class GameEngine:
         campaign = self._require_campaign(campaign_id, user_id)
         state = self._require_player_state(campaign_id)
         episode = self._require_episode_plan(campaign_id, campaign["current_episode"])
-        scene = self._resolve_scene_from_plan(episode["plan_json"], campaign.get("current_scene_key"))
+        current_scene_key = self._canonical_scene_key(campaign.get("current_scene_key"))
+        scene = self._resolve_scene_from_plan(episode["plan_json"], current_scene_key)
+        if current_scene_key and scene["scene_key"] != current_scene_key:
+            self.store.update(
+                "campaigns",
+                filters={"id": campaign_id},
+                payload={"current_scene_key": scene["scene_key"], "updated_at": self._utc_now()},
+            )
 
         instance = self.store.select_one(
             "scene_instances",
@@ -220,6 +227,11 @@ class GameEngine:
             )
             next_scene = None
         else:
+            next_scene_key = self._canonical_scene_key(next_scene_key)
+            if not self._scene_key_exists(episode["plan_json"], next_scene_key):
+                raise ValueError(
+                    f"Choice '{choice_key}' points to missing scene '{next_scene_key}' in episode {campaign['current_episode']}."
+                )
             self.store.update(
                 "campaigns",
                 filters={"id": campaign_id},
@@ -316,10 +328,15 @@ class GameEngine:
                     "llm_metadata": {"set_piece": True},
                 },
             )
+            next_scene_key = scene["set_piece"]["next_scene_key"]
+            if not self._scene_key_exists(episode["plan_json"], next_scene_key):
+                raise ValueError(
+                    f"Set piece on scene '{scene['scene_key']}' points to missing scene '{next_scene_key}'."
+                )
             self.store.update(
                 "campaigns",
                 filters={"id": campaign_id},
-                payload={"current_scene_key": scene["set_piece"]["next_scene_key"], "story_arc": story_arc, "updated_at": self._utc_now()},
+                payload={"current_scene_key": next_scene_key, "story_arc": story_arc, "updated_at": self._utc_now()},
             )
             next_scene = self.get_current_scene(campaign_id=campaign_id, user_id=user_id)
 
@@ -508,6 +525,55 @@ class GameEngine:
         episode = self.store.select_one("episode_plans", filters={"campaign_id": campaign_id, "episode_number": episode_number})
         if episode is None:
             raise ValueError(f"Episode {episode_number} plan not found.")
+        episode = self._patch_plan_if_stale(episode, campaign_id)
+        return episode
+
+    def _patch_plan_if_stale(self, episode: dict, campaign_id: UUID) -> dict:
+        plan = episode.get("plan_json", {})
+        scenes = plan.get("scenes", [])
+        patched = False
+        for scene in scenes:
+            if "_archive_lockdown" in scene.get("scene_key", "") and not scene.get("set_piece"):
+                rival = plan.get("rival", "Warden Karn")
+                next_key = scene["scene_key"].replace("_archive_lockdown", "_intercept")
+                scene["set_piece"] = {
+                    "next_scene_key": next_key,
+                    "beats": [
+                        {
+                            "title": "Beat 1: Entry",
+                            "prompt": "Security fields hum over the archive threshold. Rylos has seconds to get inside before the next patrol sweep crosses the corridor.",
+                            "choices": [
+                                {"choice_key": "cut_power", "label": "Cut power to a side corridor", "description": "Create confusion and slip through during the flicker.", "outcome": "The lights die for a breath and the annex hesitates just long enough for Rylos to cross the threshold.", "effects": {"heat_delta": 1, "intel_delta": 1}},
+                                {"choice_key": "use_code_cylinder", "label": "Use the code cylinder", "description": "Open the first lock under an authorized identity.", "outcome": "The cylinder authenticates the fake credentials and the first gate unlocks without alarm.", "effects": {"cover_delta": 1, "intel_delta": 1}},
+                                {"choice_key": "maintenance_shaft", "label": "Follow a maintenance shaft", "description": "Bypass the formal entry entirely.", "outcome": "Rylos squeezes through the service channel, but the route leaves traces a trained investigator might notice.", "effects": {"cover_delta": -1}},
+                            ],
+                        },
+                        {
+                            "title": "Beat 2: Extraction",
+                            "prompt": "Rows of sealed data cylinders glow inside the vault. Patrol routes converge on the annex while Rylos races to pull the right files.",
+                            "choices": [
+                                {"choice_key": "copy_everything", "label": "Copy everything quickly", "description": "Take as much as possible and sort it out later.", "outcome": "Data floods into the cylinder in a messy burst, but the system notices the strain immediately.", "effects": {"intel_delta": 2, "heat_delta": 2}},
+                                {"choice_key": "critical_cluster", "label": "Take only the critical file cluster", "description": "Prioritize the cleanest, most important target.", "outcome": "Rylos extracts the most relevant archive chain before the deeper systems can fully react.", "effects": {"intel_delta": 1, "heat_delta": 1, "set_flags": ["black_codex_fragment_found"]}},
+                                {"choice_key": "plant_false_trace", "label": "Plant a false trace before downloading", "description": "Protect the mission by misdirecting the investigation.", "outcome": "A false access trail begins pointing security toward a different breach team while the files transfer.", "effects": {"cover_delta": 1, "intel_delta": 1}},
+                            ],
+                        },
+                        {
+                            "title": "Beat 3: Escape",
+                            "prompt": f"Red lockdown lights flood the annex. {rival}'s officers are closing fast. At the far end of the corridor, a helmeted bounty hunter appears through the smoke — Boba Fett, hired to retrieve the same data.",
+                            "choices": [
+                                {"choice_key": "fight_through_exit", "label": "Fight through the nearest exit", "description": "Push hard before security can tighten the kill box.", "outcome": "Rylos smashes through the first response line and forces open a narrow path into the rain while Boba Fett raises his weapon.", "effects": {"heat_delta": 1, "cover_delta": -1}},
+                                {"choice_key": "machinery_collapse", "label": "Trigger a machinery collapse behind you", "description": "Delay pursuit by bringing part of the annex down.", "outcome": "A shower of sparks and steel crashes into the corridor, burying the pursuit team while the bounty hunter vanishes into the smoke.", "effects": {"heat_delta": -1, "dark_delta": 1}},
+                                {"choice_key": "service_lift", "label": "Disappear into a service lift", "description": "Trust stealth over violence for the final escape.", "outcome": "Rylos slips into a grimy service lift and vanishes between levels while Boba Fett is forced to choose between the chase and the collapsing corridor.", "effects": {"cover_delta": 1}},
+                            ],
+                        },
+                    ],
+                }
+                scene["choices"] = []
+                patched = True
+        if patched:
+            self.store.update("episode_plans", filters={"id": episode["id"]}, payload={"plan_json": plan})
+            episode = dict(episode)
+            episode["plan_json"] = plan
         return episode
 
     def _create_episode_plan(self, *, campaign_id: UUID, episode_number: int, campaign_arc: dict, player_class: str) -> dict:
@@ -537,6 +603,18 @@ class GameEngine:
             if scene["scene_key"] == current_scene_key:
                 return scene
         return scenes[0]
+
+    def _scene_key_exists(self, plan: dict, scene_key: str) -> bool:
+        return any(scene["scene_key"] == scene_key for scene in plan["scenes"])
+
+    def _canonical_scene_key(self, scene_key: str | None) -> str | None:
+        if scene_key is None:
+            return None
+        if scene_key.endswith("_archive_entry"):
+            return scene_key.replace("_archive_entry", "_archive_lockdown")
+        if scene_key == "archive_entry":
+            return "archive_lockdown"
+        return scene_key
 
     def _scene_index(self, plan: dict, scene_key: str) -> int:
         for index, scene in enumerate(plan["scenes"], start=1):

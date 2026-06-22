@@ -364,7 +364,7 @@ Outcome: {outcome}
                             "label": "Trade for encryption codes",
                             "description": "Exchange credits and favors for network access.",
                             "outcome": "A code cylinder changes hands, along with a whisper about a hidden directorate shaping recent attacks.",
-                            "next_scene_key": f"{prefix}_archive_entry",
+                            "next_scene_key": f"{prefix}_archive_lockdown",
                             "effects": {"credits_delta": -15, "add_items": [{"item_key": "imperial_code_cylinder", "item_name": "Imperial Code Cylinder"}]},
                         },
                         {
@@ -372,7 +372,7 @@ Outcome: {outcome}
                             "label": "Bait the local informant",
                             "description": "Force the contact to reveal who else is listening.",
                             "outcome": "The informant cracks and names a surveillance team tied to a secret anti-Force network.",
-                            "next_scene_key": f"{prefix}_archive_entry",
+                            "next_scene_key": f"{prefix}_archive_lockdown",
                             "effects": {"dark_delta": 1, "set_flags": ["informant_broken"]},
                         },
                         {
@@ -380,7 +380,7 @@ Outcome: {outcome}
                             "label": f"Signal {second_ally}",
                             "description": "Use a dead-drop phrase to reveal your watcher in the room.",
                             "outcome": f"{second_ally} slides into the booth and confirms a theft in the intelligence archives.",
-                            "next_scene_key": f"{prefix}_archive_entry",
+                            "next_scene_key": f"{prefix}_archive_lockdown",
                             "effects": {"relationship_deltas": {"veska_tal": 4}, "set_flags": ["watcher_contacted"]},
                         },
                     ],
