@@ -195,9 +195,15 @@ def _play_scene_loop(client: httpx.Client, campaign_id: str, scene: dict[str, An
     while current_scene:
         _render_scene(current_scene)
         console.print("[dim]Choose the number of the option you want, then press Enter.[/dim]")
-        choice_index = typer.prompt(f"Choose an option (1-{len(current_scene['choices'])})", type=int)
-        if choice_index < 1 or choice_index > len(current_scene["choices"]):
-            raise typer.BadParameter("Choice out of range.")
+        n = len(current_scene["choices"])
+        while True:
+            try:
+                choice_index = typer.prompt(f"Choose an option (1-{n})", type=int)
+                if 1 <= choice_index <= n:
+                    break
+                console.print(f"[red]Enter a number between 1 and {n}.[/red]")
+            except (ValueError, typer.BadParameter):
+                console.print("[red]Please enter a valid number.[/red]")
 
         selected = current_scene["choices"][choice_index - 1]
         with console.status("[bold yellow]Transmitting to Imperial relay...[/bold yellow]", spinner="dots"):
