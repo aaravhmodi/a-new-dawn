@@ -16,5 +16,4 @@ dist/
 .local/
 .private-docs/
 .claude/
-*.md
 *.pem
