@@ -162,8 +162,26 @@ Rules:
         return self._validated_json_response(prompt, EpisodePlanModel, fallback).model_dump()
 
     def narrate_scene(self, *, opening_crawl: str, campaign_arc: dict[str, Any], scene: dict[str, Any], stats: dict[str, Any]) -> dict[str, str]:
-        # All deterministic scenes have a pre-written prompt — use it directly, no AI call needed.
-        return {"title": scene["title"], "narration": scene["prompt"]}
+        static = scene["prompt"]
+        if self.provider in ("gemini", "ollama"):
+            prompt = f"""You are narrating a scene in a Star Wars RPG with a James Bond espionage tone.
+Expand the following scene description into two vivid cinematic paragraphs (max 120 words total).
+Keep it tense, atmospheric, and immersive. Do not invent new plot points or characters beyond what is given.
+
+Scene title: {scene["title"]}
+Scene description: {static}
+Player health: {stats.get("health", 100)}, Credits: {stats.get("credits", 0)}
+"""
+            try:
+                if self.provider == "gemini":
+                    narration = self._gemini_text_response(prompt)
+                else:
+                    narration = self._ollama_text_response(prompt)
+                if narration:
+                    return {"title": scene["title"], "narration": narration}
+            except Exception:
+                pass
+        return {"title": scene["title"], "narration": static}
 
     def narrate_resolution(self, *, scene_title: str, choice_label: str, outcome: str) -> str:
         if self.provider == "ollama":
